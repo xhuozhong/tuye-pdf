@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图片合并成 PDF</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f3ef;
+      --surface: #fff;
+      --ink: #172b2b;
+      --muted: #5c6661;
+      --line: #dedfd7;
+      --accent: #24554c;
+      --accent-dark: #193e38;
+      --tint: #edf3ee;
+      --error: #963f2e;
+      font: 15px/1.6 "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; }
+    button:focus-visible, input:focus-visible, .option:has(input:focus-visible) {
+      outline: 3px solid #427f72;
+      outline-offset: 3px;
+    }
+
+    .shell { width: min(1104px, calc(100% - 56px)); margin-inline: auto; }
+    .masthead { border-bottom: 1px solid var(--line); }
+    .masthead-inner { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand, .local-badge { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+    .brand { font-weight: 750; letter-spacing: .08em; }
+    .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: white; }
+    .local-badge { font-size: 12px; color: var(--muted); }
+    .local-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #4e806c; }
+
+    main { padding-block: 46px 40px; }
+    .hero { margin-bottom: 26px; }
+    .eyebrow { margin: 0 0 6px; color: var(--accent); font-size: 12px; font-weight: 750; letter-spacing: .18em; }
+    h1 { margin: 0; font-size: clamp(2rem, 5.4vw, 3.55rem); line-height: 1.19; letter-spacing: -.045em; }
+    .hero-copy { color: var(--muted); margin: 12px 0 0; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(310px, 1fr); align-items: start; gap: 18px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 17px; padding: 23px; box-shadow: 0 6px 18px #172b2b06; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .heading-label { display: flex; align-items: center; gap: 10px; }
+    .step { font: 700 11px/1 system-ui, sans-serif; color: var(--accent); background: var(--tint); border-radius: 6px; padding: 6px 7px; }
+    h2 { font-size: 17px; margin: 0; }
+    .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+    .drop-zone { display: grid; justify-items: center; gap: 7px; text-align: center; background: #fafbf8; border: 1px dashed #9eaea1; border-radius: 12px; padding: 21px 12px; }
+    .drop-zone.is-over { background: var(--tint); border-color: var(--accent); outline: 2px solid var(--accent); }
+    .upload-icon { width: 43px; height: 43px; display: grid; place-items: center; background: var(--tint); border-radius: 12px; color: var(--accent); }
+    .drop-zone p { margin: 0; }
+    .drop-title { font-weight: 700; }
+    .formats { font-size: 12px; color: var(--muted); }
+    .pick-button { display: flex; align-items: center; gap: 7px; margin-top: 5px; border: 1px solid #a3b8ac; border-radius: 8px; background: var(--surface); color: var(--accent-dark); padding: 6px 13px; font-weight: 700; }
+    .pick-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: var(--tint); border-color: var(--accent); }
+    .pick-button:disabled { opacity: .45; }
+
+    .order-hint { display: flex; gap: 6px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; margin: 17px 0 8px; color: var(--muted); font-size: 12px; }
+    .order-hint strong { color: var(--ink); font-size: 13px; }
+    .empty-state { margin: 14px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
+    [hidden] { display: none !important; }
+    .image-list { margin: -3px; padding: 3px; list-style: none; display: grid; gap: 6px; max-height: 382px; overflow: auto; }
+    .image-row { display: grid; grid-template-columns: 24px 46px minmax(0, 1fr) auto; align-items: center; gap: 10px; position: relative; min-height: 58px; border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; }
+    .image-row.dragging { opacity: .48; }
+    .image-row.drop-before { box-shadow: 0 -3px 0 var(--accent); }
+    .image-row.drop-after { box-shadow: 0 3px 0 var(--accent); }
+    .drag-handle { display: grid; place-items: center; gap: 1px; font-size: 10px; line-height: 1; color: var(--muted); cursor: grab; }
+    .drag-handle[draggable="false"] { cursor: default; }
+    .thumbnail { width: 46px; height: 42px; object-fit: contain; display: block; border-radius: 5px; background: #f1f2ee; }
+    .file-name { display: block; font-size: 13px; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .file-meta { display: block; font-size: 11px; color: var(--muted); }
+    .row-actions { display: flex; gap: 4px; }
+    .icon-button { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--accent-dark); border-radius: 6px; }
+    .icon-button:disabled { opacity: .35; }
+    .icon-button[data-action="remove"] { color: var(--error); }
+    .icon-button[data-action="remove"]:hover:not(:disabled) { background: #fff0eb; border-color: #c7a498; }
+
+    fieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+    legend, .input-label { font-size: 13px; font-weight: 700; margin-bottom: 7px; padding: 0; }
+    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .option { display: flex; align-items: center; gap: 7px; position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: var(--ink); font-size: 12px; cursor: pointer; }
+    .option:has(input:checked) { border-color: #6d8e7f; color: var(--accent-dark); background: var(--tint); }
+    .option input { margin: 0; accent-color: var(--accent); }
+    .option:has(input:disabled) { cursor: default; opacity: .65; }
+    .option-copy { margin: 7px 0 15px; min-height: 2.9em; color: var(--muted); font-size: 12px; }
+    .input-label { display: block; }
+    .filename-field { display: flex; align-items: stretch; margin-bottom: 15px; }
+    .filename-field input { min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-right: 0; border-radius: 8px 0 0 8px; color: var(--ink); background: var(--surface); }
+    .filename-field input:focus-visible { z-index: 1; }
+    .suffix { display: grid; place-items: center; border: 1px solid var(--line); border-radius: 0 8px 8px 0; padding-inline: 10px; background: #f6f7f3; color: var(--muted); font-size: 12px; }
+    .export-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px; border: 0; border-radius: 8px; color: white; background: var(--accent); font-weight: 700; }
+    .export-button:hover:not(:disabled) { background: var(--accent-dark); }
+    .export-button:disabled { background: #e9ece6; color: #63746b; }
+    .progress-box { margin-top: 10px; }
+    .progress-box progress { display: block; width: 100%; height: 8px; accent-color: var(--accent); }
+    .export-hint { margin: 9px 0 0; text-align: center; color: var(--muted); font-size: 11px; }
+    .notice { margin: 9px 0 0; font-size: 12px; color: var(--accent-dark); overflow-wrap: anywhere; }
+    .notice:empty { display: none; }
+    .notice[data-tone="error"] { color: var(--error); }
+    .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-top: 17px; color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 760px) {
+      .shell { width: calc(100% - 32px); }
+      .masthead-inner { min-height: 58px; }
+      main { padding-block: 32px 28px; }
+      .hero { margin-bottom: 20px; }
+      .layout { grid-template-columns: 1fr; gap: 13px; }
+      .panel { padding: 16px; }
+      .image-list { max-height: 254px; }
+    }
+    @media (max-width: 390px) {
+      .shell { width: calc(100% - 22px); }
+      .panel { padding: 12px; }
+      .image-row { gap: 5px; grid-template-columns: 20px 34px minmax(0, 1fr) auto; padding-inline: 5px; }
+      .thumbnail { width: 34px; }
+      .icon-button { width: 27px; }
+    }
+  </style>
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <symbol id="icon-brand" viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z"/><path d="M16 3H5a1 1 0 0 0-1 1v12m8-1 2-2 2 2m-3-5h.01"/></symbol>
+      <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 16V4m-5 5 5-5 5 5"/></symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 4v12m-5-5 5 5 5-5"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-up" viewBox="0 0 24 24"><path d="m6 14 6-6 6 6"/></symbol>
+      <symbol id="icon-down" viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></symbol>
+      <symbol id="icon-remove" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="icon-grip" viewBox="0 0 24 24"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" stroke-width="3"/></symbol>
+    </defs>
+  </svg>
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <div class="brand"><span class="brand-mark"><svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-brand"/></svg></span>图页</div>
+      <span class="local-badge">离线运行 · 图片留在本机</span>
+    </div>
+  </header>
+  <main class="shell">
+    <div class="hero">
+      <p class="eyebrow">本地文件工具</p>
+      <h1>图片合并成 PDF</h1>
+      <p class="hero-copy">添加多张图片，按需要调整顺序，每张图片生成一页。</p>
+    </div>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="images-heading">
+        <div class="panel-heading">
+          <div class="heading-label"><span class="step" aria-hidden="true">01</span><h2 id="images-heading">添加图片</h2></div>
+          <span class="count" id="image-count" aria-live="polite">0 张图片</span>
+        </div>
+        <div class="drop-zone" id="drop-zone">
+          <span class="upload-icon"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-upload"/></svg></span>
+          <p class="drop-title">把图片拖到这里</p>
+          <p class="formats">支持 JPG、PNG、WebP、BMP</p>
+          <button class="pick-button" type="button" id="pick-button"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#icon-plus"/></svg>选择图片</button>
+          <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.jfif,.png,.webp,.bmp,image/jpeg,image/png,image/webp,image/bmp" hidden>
+        </div>
+        <p class="notice" id="file-notice" role="status"></p>
+        <div class="order-hint" id="order-hint" hidden><strong>页面顺序</strong><span>拖动序号，或使用上下按钮调整</span></div>
+        <ol class="image-list" id="image-list" aria-label="PDF 页面顺序" hidden></ol>
+        <p class="empty-state" id="empty-state">添加后可预览缩略图、排序和移除。</p>
+      </section>
+
+      <section class="panel" aria-labelledby="export-heading">
+        <div class="panel-heading"><div class="heading-label"><span class="step" aria-hidden="true">02</span><h2 id="export-heading">设置与导出</h2></div></div>
+        <fieldset id="page-options" aria-describedby="option-copy">
+          <legend>页面规格</legend>
+          <div class="options">
+            <label class="option"><input type="radio" name="page-mode" id="page-auto" value="auto" checked>A4 自动方向</label>
+            <label class="option"><input type="radio" name="page-mode" id="page-portrait" value="portrait">A4 竖版</label>
+            <label class="option"><input type="radio" name="page-mode" id="page-landscape" value="landscape">A4 横版</label>
+            <label class="option"><input type="radio" name="page-mode" id="page-image" value="image">按图片比例</label>
+          </div>
+        </fieldset>
+        <p class="option-copy" id="option-copy">每页按图片方向选择横版或竖版，等比缩放并居中。</p>
+        <label class="input-label" for="pdf-name">文件名</label>
+        <div class="filename-field"><input id="pdf-name" type="text" value="合并图片" placeholder="合并图片" maxlength="80" autocomplete="off" spellcheck="false"><span class="suffix" aria-hidden="true">.pdf</span></div>
+        <button class="export-button" type="button" id="export-button" disabled><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-download"/></svg><span id="export-label">生成并下载 PDF</span></button>
+        <div class="progress-box" id="progress-box" hidden><progress id="progress" value="0" max="1" aria-label="生成进度"></progress></div>
+        <p class="notice" id="notice" role="status"></p>
+        <p class="export-hint">透明区域会以白底显示。</p>
+      </section>
+    </div>
+    <div class="footer"><span>双击本文件，即可在浏览器中离线使用。</span><span>导出时会压缩图片，超大图片会缩小。</span></div>
+  </main>
+  <noscript><p class="shell">请启用浏览器的 JavaScript 以使用此工具。</p></noscript>
+
+  <script>
+  'use strict';
+
+  /* PDF_ENGINE */
+
+  const fileInput = document.querySelector('#file-input');
+  const dropZone = document.querySelector('#drop-zone');
+  const pickButton = document.querySelector('#pick-button');
+  const fileNotice = document.querySelector('#file-notice');
+  const imageList = document.querySelector('#image-list');
+  const imageCount = document.querySelector('#image-count');
+  const orderHint = document.querySelector('#order-hint');
+  const emptyState = document.querySelector('#empty-state');
+  const pageOptions = document.querySelector('#page-options');
+  const optionCopy = document.querySelector('#option-copy');
+  const pdfName = document.querySelector('#pdf-name');
+  const exportButton = document.querySelector('#export-button');
+  const exportLabel = document.querySelector('#export-label');
+  const progressBox = document.querySelector('#progress-box');
+  const progress = document.querySelector('#progress');
+  const notice = document.querySelector('#notice');
+
+  const modeDescriptions = {
+    auto: '每页按图片方向选择横版或竖版，等比缩放并居中。',
+    portrait: '所有页面统一为 A4 竖版，图片等比缩放并居中。',
+    landscape: '所有页面统一为 A4 横版，图片等比缩放并居中。',
+    image: '每页随图片宽高比设定大小，图片铺满页面。'
+  };
+  const rowActions = [['up', '上移'], ['down', '下移'], ['remove', '移除']];
+  const items = [];
+  let nextId = 1;
+  let busy = false;
+  let draggedRow = null;
+  let dropTarget = null;
+
+  function icon(name, size) {
+    const namespace = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(namespace, 'svg');
+    const attributes = { width: size, height: size, fill: 'none', stroke: 'currentColor',
+      'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
+    for (const [key, value] of Object.entries(attributes)) svg.setAttribute(key, value);
+    const use = document.createElementNS(namespace, 'use');
+    use.setAttribute('href', `#icon-${name}`);
+    svg.append(use);
+    return svg;
+  }
+
+  function setNotice(element, message = '', tone = '') {
+    element.textContent = message;
+    element.dataset.tone = tone;
+  }
+
+  function fileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function renderList(focusId, focusAction) {
+    const rows = document.createDocumentFragment();
+    let focusButton;
+    items.forEach(({ id, file, url }, index) => {
+      const row = document.createElement('li');
+      row.className = 'image-row';
+      row.dataset.id = id;
+
+      const grip = document.createElement('span');
+      grip.className = 'drag-handle';
+      grip.draggable = !busy && items.length > 1;
+      grip.title = '拖动调整顺序';
+      grip.append(icon('grip', 15), String(index + 1));
+
+      const preview = document.createElement('img');
+      preview.className = 'thumbnail';
+      preview.alt = '';
+      preview.loading = 'lazy';
+      preview.decoding = 'async';
+      preview.draggable = false;
+      preview.src = url;
+
+      const info = document.createElement('div');
+      const name = document.createElement('span');
+      name.className = 'file-name';
+      name.textContent = file.name;
+      name.title = file.name;
+      const meta = document.createElement('span');
+      meta.className = 'file-meta';
+      meta.textContent = fileSize(file.size);
+      preview.addEventListener('error', () => { meta.textContent = '图片无法预览'; }, { once: true });
+      info.append(name, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'row-actions';
+      for (const [action, label] of rowActions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'icon-button';
+        button.dataset.action = action;
+        button.title = label;
+        button.setAttribute('aria-label', `${label}第 ${index + 1} 张图片`);
+        button.disabled = busy || (action === 'up' && index === 0) || (action === 'down' && index === items.length - 1);
+        button.append(icon(action, 16));
+        actions.append(button);
+        if (id === focusId && !button.disabled && (!focusButton || action === focusAction)) focusButton = button;
+      }
+
+      row.append(grip, preview, info, actions);
+      rows.append(row);
+    });
+    imageList.replaceChildren(rows);
+    imageList.hidden = items.length === 0;
+    orderHint.hidden = imageList.hidden;
+    emptyState.hidden = !imageList.hidden;
+    const countText = `${items.length} 张图片`;
+    if (imageCount.textContent !== countText) imageCount.textContent = countText;
+    exportButton.disabled = busy || items.length === 0;
+    if (focusId != null) (focusButton || pickButton).focus();
+  }
+
+  function addFiles(files) {
+    if (busy) return;
+    const rejected = [];
+    for (const file of files) {
+      const supported = /\.(jpe?g|jfif|png|webp|bmp)$/i.test(file.name) || /^(image\/(jpeg|png|webp|bmp|x-ms-bmp))$/i.test(file.type);
+      if (!supported || file.size === 0) {
+        rejected.push(file.name);
+        continue;
+      }
+      items.push({ id: nextId++, file, url: URL.createObjectURL(file) });
+    }
+    const skipped = rejected.slice(0, 3).join('、');
+    const more = rejected.length > 3 ? `等 ${rejected.length} 个文件` : '';
+    setNotice(fileNotice, rejected.length ? `已跳过空文件或不支持的格式：${skipped}${more}` : '', 'error');
+    setNotice(notice);
+    renderList();
+  }
+
+  function moveItem(from, to, focusAction) {
+    if (from < 0 || to < 0 || to >= items.length || from === to) return;
+    const [item] = items.splice(from, 1);
+    items.splice(to, 0, item);
+    setNotice(notice);
+    renderList(focusAction ? item.id : undefined, focusAction);
+  }
+
+  function clearDropTarget() {
+    dropTarget?.classList.remove('drop-before', 'drop-after');
+    dropTarget = null;
+  }
+
+  function endDrag() {
+    draggedRow?.classList.remove('dragging');
+    draggedRow = null;
+    clearDropTarget();
+  }
+
+  pickButton.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    addFiles(fileInput.files);
+    fileInput.value = '';
+  });
+
+  for (const eventName of ['dragover', 'drop']) {
+    document.addEventListener(eventName, event => {
+      if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+    });
+  }
+  dropZone.addEventListener('dragover', event => {
+    if (busy || !event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    dropZone.classList.add('is-over');
+  });
+  dropZone.addEventListener('dragleave', event => {
+    if (!dropZone.contains(event.relatedTarget)) dropZone.classList.remove('is-over');
+  });
+  dropZone.addEventListener('drop', event => {
+    dropZone.classList.remove('is-over');
+    if (event.dataTransfer.files.length === 0) return;
+    event.preventDefault();
+    addFiles(event.dataTransfer.files);
+  });
+
+  imageList.addEventListener('click', event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button || busy) return;
+    const id = Number(button.closest('li').dataset.id);
+    const index = items.findIndex(item => item.id === id);
+    if (index === -1) return;
+    if (button.dataset.action === 'remove') {
+      const [item] = items.splice(index, 1);
+      URL.revokeObjectURL(item.url);
+      setNotice(notice);
+      renderList((items[index] || items[index - 1])?.id ?? id, 'remove');
+      return;
+    }
+    const offset = button.dataset.action === 'up' ? -1 : 1;
+    moveItem(index, index + offset, button.dataset.action);
+  });
+
+  imageList.addEventListener('dragstart', event => {
+    const handle = event.target.closest('.drag-handle');
+    if (!handle || !handle.draggable || busy) return;
+    draggedRow = handle.closest('li');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', draggedRow.dataset.id);
+    draggedRow.classList.add('dragging');
+  });
+  imageList.addEventListener('dragover', event => {
+    if (!draggedRow) return;
+    const row = event.target.closest('.image-row');
+    clearDropTarget();
+    if (!row || row === draggedRow) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    dropTarget = row;
+    const box = row.getBoundingClientRect();
+    row.classList.add(event.clientY < box.top + box.height / 2 ? 'drop-before' : 'drop-after');
+  });
+  imageList.addEventListener('dragleave', event => {
+    if (!imageList.contains(event.relatedTarget)) clearDropTarget();
+  });
+  imageList.addEventListener('dragend', endDrag);
+  imageList.addEventListener('drop', event => {
+    if (!draggedRow || !dropTarget) return;
+    event.preventDefault();
+    const source = items.findIndex(item => item.id === Number(draggedRow.dataset.id));
+    const target = items.findIndex(item => item.id === Number(dropTarget.dataset.id));
+    const insertion = target + (dropTarget.classList.contains('drop-after') ? 1 : 0);
+    endDrag();
+    moveItem(source, insertion - (source < insertion ? 1 : 0));
+  });
+
+  pageOptions.addEventListener('change', event => {
+    optionCopy.textContent = modeDescriptions[event.target.value];
+    setNotice(notice);
+  });
+  pdfName.addEventListener('input', () => setNotice(notice));
+
+  function downloadName(value) {
+    let name = value.trim().replace(/(?:\.pdf)+$/i, '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/, '');
+    if (/^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)/i.test(name)) name = `_${name}`;
+    return `${name || '合并图片'}.pdf`;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    pickButton.disabled = value;
+    fileInput.disabled = value;
+    pageOptions.disabled = value;
+    pdfName.disabled = value;
+    progressBox.hidden = !value;
+    renderList();
+  }
+
+  exportButton.addEventListener('click', async () => {
+    if (busy || items.length === 0) return;
+    const files = items.map(item => item.file);
+    const pageMode = pageOptions.querySelector('input:checked').value;
+    const name = downloadName(pdfName.value);
+    progress.max = files.length;
+    progress.value = 0;
+    setNotice(notice);
+    setBusy(true);
+    exportLabel.textContent = `正在生成 0 / ${files.length}`;
+
+    try {
+      const blob = await buildImagePdf(files, {
+        pageMode,
+        onProgress(completed, total) {
+          progress.value = completed;
+          exportLabel.textContent = `正在生成 ${completed} / ${total}`;
+        }
+      });
+      const url = URL.createObjectURL(blob);
+      const download = document.createElement('a');
+      download.href = url;
+      download.download = name;
+      document.body.append(download);
+      download.click();
+      download.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setNotice(notice, `已生成 ${name}，共 ${files.length} 页（${fileSize(blob.size)}）。`);
+    } catch (error) {
+      setNotice(notice, error.message || '生成失败，请检查图片后重试。', 'error');
+    } finally {
+      setBusy(false);
+      exportLabel.textContent = '生成并下载 PDF';
+      exportButton.focus();
+    }
+  });
+  </script>
+</body>
+</html>
