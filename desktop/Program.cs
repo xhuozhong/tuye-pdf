@@ -15,9 +15,9 @@ using Microsoft.Web.WebView2.WinForms;
 
 [assembly: AssemblyTitle("多图转 PDF")]
 [assembly: AssemblyProduct("多图转 PDF")]
-[assembly: AssemblyDescription("将多张图片合并成 PDF 的离线桌面工具")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyDescription("将图片和 PDF 文件合并的离线桌面工具")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 
 internal static class Program
 {

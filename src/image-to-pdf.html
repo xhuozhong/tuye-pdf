@@ -95,6 +95,18 @@
     .option input { margin: 0; accent-color: var(--accent); }
     .option:has(input:disabled) { cursor: default; opacity: .65; }
     .option-copy { margin: 10px 0 25px; min-height: 2.9em; color: var(--muted); font-size: 11px; }
+    .extra-settings { margin-bottom: 20px; display: grid; gap: 14px; }
+    .setting-select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); font: inherit; font-size: 12px; }
+    .setting-help { margin: 5px 0 0; font-size: 11px; color: var(--muted); }
+    .export-actions { display: grid; gap: 8px; margin-top: 9px; }
+    #retry-button, #cancel-button { justify-content: center; width: 100%; }
+    #invalid-panel { border: 1px solid #e4c5b8; background: #fff8f4; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 12px; }
+    #invalid-panel p { margin: 0 0 8px; color: var(--error); }
+    .image-row[data-invalid="true"] { background: #fff8f4; }
+    .file-meta[data-invalid="true"] { color: var(--error); }
+    .pdf-thumbnail { display: grid; place-content: center; width: 100%; height: 100%; color: #ad493e; font: 700 15px/1.2 system-ui, sans-serif; }
+    #pdf-preview-info { text-align: center; padding: 36px 20px; color: var(--muted); }
+    #pdf-preview-info strong { display: block; color: #ad493e; font-size: 32px; margin-bottom: 12px; }
     .input-label { display: block; }
     .filename-field { display: flex; align-items: stretch; margin-bottom: 32px; }
     .filename-field input { min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-right: 0; border-radius: 8px 0 0 8px; color: var(--ink); background: var(--surface); }
@@ -116,6 +128,11 @@
     #preview-close { flex-shrink: 0; white-space: nowrap; }
     .preview-stage { height: min(56vh, 520px); display: grid; place-items: center; background: #f1f2ee; border-radius: 8px; overflow: hidden; }
     #preview-canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+    #preview-canvas.is-cropping { cursor: crosshair; touch-action: none; }
+    .crop-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .crop-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; margin-block: 8px; }
+    .crop-presets label { font-size: 11px; color: var(--muted); }
+    .crop-presets input { width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 5px; }
     .preview-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
     .preview-navigation { display: flex; align-items: center; gap: 10px; }
     #preview-position { color: var(--muted); font-size: 12px; }
@@ -165,19 +182,19 @@
   </header>
   <main class="shell">
     <div class="hero">
-      <h1>图片合并成 PDF</h1>
-      <p class="hero-copy">添加图片，调整顺序，导出一份 PDF</p>
+      <h1>图片与 PDF 合并</h1>
+      <p class="hero-copy">消费截图、发票 PDF，按顺序整理成一份文件</p>
     </div>
 
     <div class="layout">
       <section class="panel" aria-labelledby="images-heading">
         <div class="panel-heading">
           <h2 class="sr-only" id="images-heading">待合并图片</h2>
-          <span class="count" id="image-count" aria-live="polite">0 张图片</span>
+          <span class="count" id="image-count" aria-live="polite">0 个文件</span>
         </div>
         <div class="material-toolbar">
           <div class="import-actions">
-            <button class="pick-button" type="button" id="pick-button"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#icon-plus"/></svg>选择图片</button>
+            <button class="pick-button" type="button" id="pick-button"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#icon-plus"/></svg>选择文件</button>
             <button class="pick-button" type="button" id="paste-button">粘贴截图</button>
           </div>
           <div class="list-tools" id="list-tools" hidden>
@@ -187,21 +204,21 @@
         </div>
         <div class="drop-zone" id="drop-zone">
           <span class="upload-icon"><svg width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-upload"/></svg></span>
-          <p class="drop-title">拖入图片，也可按 Ctrl+V 或 ⌘V 粘贴</p>
-          <p class="formats">JPG · PNG · WebP · BMP</p>
+          <p class="drop-title">拖入图片或 PDF，也可按 Ctrl+V 或 ⌘V 粘贴截图</p>
+          <p class="formats">JPG · PNG · WebP · BMP · PDF</p>
         </div>
-        <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.jfif,.png,.webp,.bmp,image/jpeg,image/png,image/webp,image/bmp" hidden>
+        <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.jfif,.png,.webp,.bmp,.pdf,image/jpeg,image/png,image/webp,image/bmp,application/pdf" hidden>
         <p class="notice" id="file-notice" role="status"></p>
         <p class="order-hint" id="order-hint" hidden>拖动序号或使用箭头调整页序</p>
         <ol class="image-list" id="image-list" aria-label="PDF 页面顺序" hidden></ol>
-        <p class="empty-state" id="empty-state">选择图片后，每张图片会生成一页。</p>
-        <p class="preview-hint">点击缩略图可预览和旋转</p>
+        <p class="empty-state" id="empty-state">图片与 PDF 可混合添加，按列表顺序合并。</p>
+        <p class="preview-hint">点击图片可预览、裁剪和旋转。PDF 整份保留页面与文字。</p>
       </section>
 
       <section class="panel" aria-labelledby="export-heading">
         <div class="panel-heading"><h2 id="export-heading">导出设置</h2></div>
         <fieldset id="page-options" aria-describedby="option-copy">
-          <legend>页面规格</legend>
+          <legend>图片页面规格</legend>
           <div class="options">
             <label class="option"><input type="radio" name="page-mode" id="page-auto" value="auto" checked>A4 自动方向</label>
             <label class="option"><input type="radio" name="page-mode" id="page-portrait" value="portrait">A4 竖版</label>
@@ -209,35 +226,80 @@
             <label class="option"><input type="radio" name="page-mode" id="page-image" value="image">按图片比例</label>
           </div>
         </fieldset>
-        <p class="option-copy" id="option-copy">每页按图片方向选择横版或竖版，等比缩放并居中。</p>
+        <p class="option-copy" id="option-copy">图片按方向选择横版或竖版，等比居中。PDF 保留原页面尺寸。</p>
+        <div class="extra-settings">
+          <div>
+            <label class="input-label" for="quality-mode">画质与体积</label>
+            <select class="setting-select" id="quality-mode">
+              <option value="balanced">均衡（推荐）</option>
+              <option value="original">保留原图清晰度</option>
+              <option value="small">更小文件</option>
+            </select>
+            <p class="setting-help" id="quality-help">适合日常阅读和打印。</p>
+          </div>
+          <div>
+            <label class="input-label" for="long-image-mode">长图处理</label>
+            <select class="setting-select" id="long-image-mode">
+              <option value="single">每张图片一页</option>
+              <option value="split">长图按 A4 竖版分页</option>
+            </select>
+            <p class="setting-help">分页模式按页宽保留内容，适合聊天记录和网页截图。</p>
+          </div>
+        </div>
         <label class="input-label" for="pdf-name">文件名</label>
-        <div class="filename-field"><input id="pdf-name" type="text" value="合并图片" placeholder="合并图片" maxlength="80" autocomplete="off" spellcheck="false"><span class="suffix" aria-hidden="true">.pdf</span></div>
+        <div class="filename-field"><input id="pdf-name" type="text" value="合并文件" placeholder="合并文件" maxlength="80" autocomplete="off" spellcheck="false"><span class="suffix" aria-hidden="true">.pdf</span></div>
         <button class="export-button" type="button" id="export-button" disabled><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-download"/></svg><span id="export-label">生成并下载 PDF</span></button>
         <div class="progress-box" id="progress-box" hidden><progress id="progress" value="0" max="1" aria-label="生成进度"></progress></div>
+        <div class="export-actions">
+          <button class="text-button" id="cancel-button" type="button" hidden>取消生成</button>
+          <button class="text-button" id="retry-button" type="button" hidden>再次下载已生成的 PDF</button>
+        </div>
+        <div id="invalid-panel" hidden>
+          <p id="invalid-summary"></p>
+          <button class="text-button" id="skip-invalid-button" type="button">跳过无法读取的图片并生成</button>
+        </div>
         <p class="notice" id="notice" role="status"></p>
         <p class="export-hint">透明区域会以白底显示。</p>
       </section>
     </div>
-    <div class="footer"><span>双击本文件，即可在浏览器中离线使用。</span><span>导出时会压缩图片，超大图片会缩小。</span></div>
+    <div class="footer"><span>双击本文件，即可在浏览器中离线使用。</span><span>均衡与更小文件模式会压缩图片。</span></div>
   </main>
   <dialog id="preview-dialog" aria-labelledby="preview-title">
     <div class="preview-heading">
       <h2 id="preview-title">图片预览</h2>
       <button class="text-button" type="button" id="preview-close">关闭</button>
     </div>
-    <div class="preview-stage"><canvas id="preview-canvas" aria-label="图片预览"></canvas></div>
+    <div class="preview-stage"><canvas id="preview-canvas" aria-label="图片预览"></canvas><div id="pdf-preview-info" hidden><strong>PDF</strong><p id="pdf-preview-details"></p><p>整份文档按列表顺序合并，保留原页面尺寸、文字和图形。</p><p>数字签名与表单交互请以原文件为准。</p></div></div>
     <p class="notice" id="preview-notice" role="status"></p>
     <div class="preview-actions">
-      <button class="text-button" type="button" id="rotate-button">顺时针旋转 90°</button>
+      <div class="import-actions">
+        <button class="text-button" type="button" id="rotate-button">顺时针旋转 90°</button>
+        <button class="text-button" type="button" id="crop-button">裁剪</button>
+        <button class="text-button" type="button" id="reset-crop-button" hidden>恢复完整图片</button>
+      </div>
       <div class="preview-navigation">
         <button class="text-button" type="button" id="preview-prev">上一张</button>
         <span id="preview-position"></span>
         <button class="text-button" type="button" id="preview-next">下一张</button>
       </div>
     </div>
+    <div id="crop-controls" hidden>
+      <p class="setting-help">拖动选出保留区域，也可设置四边裁去的百分比。确认后用于预览和导出。</p>
+      <div class="crop-presets">
+        <label>左边 %<input id="crop-left" type="number" min="0" max="99" step="0.1" value="0"></label>
+        <label>右边 %<input id="crop-right" type="number" min="0" max="99" step="0.1" value="0"></label>
+        <label>上边 %<input id="crop-top" type="number" min="0" max="99" step="0.1" value="0"></label>
+        <label>下边 %<input id="crop-bottom" type="number" min="0" max="99" step="0.1" value="0"></label>
+      </div>
+      <div class="crop-tools">
+        <button class="pick-button" type="button" id="apply-crop-button">确认裁剪</button>
+        <button class="text-button" type="button" id="cancel-crop-button">取消裁剪</button>
+      </div>
+    </div>
   </dialog>
   <noscript><p class="shell">请启用浏览器的 JavaScript 以使用此工具。</p></noscript>
 
+  <!-- PDF_LIBRARY -->
   <script>
   'use strict';
 
@@ -263,6 +325,14 @@
   const progressBox = document.querySelector('#progress-box');
   const progress = document.querySelector('#progress');
   const notice = document.querySelector('#notice');
+  const qualityMode = document.querySelector('#quality-mode');
+  const qualityHelp = document.querySelector('#quality-help');
+  const longImageMode = document.querySelector('#long-image-mode');
+  const cancelButton = document.querySelector('#cancel-button');
+  const retryButton = document.querySelector('#retry-button');
+  const invalidPanel = document.querySelector('#invalid-panel');
+  const invalidSummary = document.querySelector('#invalid-summary');
+  const skipInvalidButton = document.querySelector('#skip-invalid-button');
   const previewDialog = document.querySelector('#preview-dialog');
   const previewCanvas = document.querySelector('#preview-canvas');
   const previewTitle = document.querySelector('#preview-title');
@@ -271,14 +341,20 @@
   const previewPrev = document.querySelector('#preview-prev');
   const previewNext = document.querySelector('#preview-next');
   const rotateButton = document.querySelector('#rotate-button');
+  const cropButton = document.querySelector('#crop-button');
+  const resetCropButton = document.querySelector('#reset-crop-button');
+  const cropControls = document.querySelector('#crop-controls');
+  const pdfPreviewInfo = document.querySelector('#pdf-preview-info');
+  const pdfPreviewDetails = document.querySelector('#pdf-preview-details');
+  const cropInputs = ['left', 'right', 'top', 'bottom'].map(edge => document.querySelector(`#crop-${edge}`));
   const desktopHost = window.chrome?.webview;
   const filenameOrder = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 
   const modeDescriptions = {
-    auto: '每页按图片方向选择横版或竖版，等比缩放并居中。',
-    portrait: '所有页面统一为 A4 竖版，图片等比缩放并居中。',
-    landscape: '所有页面统一为 A4 横版，图片等比缩放并居中。',
-    image: '每页随图片宽高比设定大小，图片铺满页面。'
+    auto: '图片按方向选择横版或竖版，等比居中。PDF 保留原页面尺寸。',
+    portrait: '图片使用 A4 竖版，等比居中。PDF 保留原页面尺寸。',
+    landscape: '图片使用 A4 横版，等比居中。PDF 保留原页面尺寸。',
+    image: '图片按自身比例铺满页面。PDF 保留原页面尺寸。'
   };
   const rowActions = [['up', '上移'], ['down', '下移'], ['remove', '移除']];
   const items = [];
@@ -291,6 +367,20 @@
   let readingClipboard = false;
   let clipboardRequest = 0;
   let pasteSequence = 0;
+  let previewImage = null;
+  let cropEditing = false;
+  let draftCrop = null;
+  let cropStart = null;
+  let exportController = null;
+  let cachedPdf = null;
+
+  function invalidateOutput() {
+    cachedPdf = null;
+    retryButton.hidden = true;
+    window.nativeReleasePdf?.();
+    invalidPanel.hidden = true;
+    setNotice(notice);
+  }
 
   function icon(name, size) {
     const namespace = 'http://www.w3.org/2000/svg';
@@ -318,10 +408,11 @@
   function renderList(focusId, focusAction) {
     const rows = document.createDocumentFragment();
     let focusButton;
-    items.forEach(({ id, file, url, rotation }, index) => {
+    items.forEach(({ id, file, url, type, pageCount, rotation, crop, validation, validationMessage }, index) => {
       const row = document.createElement('li');
       row.className = 'image-row';
       row.dataset.id = id;
+      row.dataset.invalid = validation === 'error';
 
       const grip = document.createElement('span');
       grip.className = 'drag-handle';
@@ -335,16 +426,22 @@
       preview.loading = 'lazy';
       preview.decoding = 'async';
       preview.draggable = false;
-      preview.src = url;
+      if (type !== 'pdf') preview.src = url;
       preview.style.transform = `rotate(${rotation}deg)`;
       const previewButton = document.createElement('button');
       previewButton.type = 'button';
       previewButton.className = 'thumbnail-button';
       previewButton.dataset.action = 'preview';
-      previewButton.setAttribute('aria-label', `预览第 ${index + 1} 张图片`);
+      previewButton.setAttribute('aria-label', `预览第 ${index + 1} 个文件`);
       previewButton.title = '放大预览和旋转';
       previewButton.disabled = busy;
-      previewButton.append(preview);
+      if (type === 'pdf') {
+        const pdfIcon = document.createElement('span');
+        pdfIcon.className = 'pdf-thumbnail';
+        pdfIcon.textContent = 'PDF';
+        previewButton.append(pdfIcon);
+        previewButton.title = '查看 PDF 信息';
+      } else previewButton.append(preview);
 
       const info = document.createElement('div');
       const name = document.createElement('span');
@@ -353,7 +450,11 @@
       name.title = file.name;
       const meta = document.createElement('span');
       meta.className = 'file-meta';
-      meta.textContent = fileSize(file.size) + (rotation ? ` · 已旋转 ${rotation}°` : '');
+      meta.textContent = validation === 'error' ? validationMessage || '无法读取，请移除或选择跳过' :
+        fileSize(file.size) + (type === 'pdf' ? ` · ${pageCount || '待检查'} 页` : '') +
+        (crop ? ' · 已裁剪' : '') + (rotation ? ` · 已旋转 ${rotation}°` : '');
+      meta.dataset.invalid = validation === 'error';
+      if (validationMessage) meta.title = validationMessage;
       preview.addEventListener('error', () => { meta.textContent = '图片无法预览'; }, { once: true });
       info.append(name, meta);
 
@@ -382,7 +483,7 @@
     sortButton.disabled = busy || items.length < 2;
     clearButton.disabled = busy || items.length === 0;
     emptyState.hidden = !imageList.hidden;
-    const countText = `${items.length} 张图片`;
+    const countText = `${items.length} 个文件`;
     if (imageCount.textContent !== countText) imageCount.textContent = countText;
     exportButton.disabled = busy || readingClipboard || items.length === 0;
     if (focusId != null) (focusButton || pickButton).focus();
@@ -390,14 +491,17 @@
 
   function addFiles(files) {
     if (busy) return;
+    invalidateOutput();
     const rejected = [];
     for (const file of files) {
-      const supported = /\.(jpe?g|jfif|png|webp|bmp)$/i.test(file.name) || /^(image\/(jpeg|png|webp|bmp|x-ms-bmp))$/i.test(file.type);
+      const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+      const supported = isPdf || /\.(jpe?g|jfif|png|webp|bmp)$/i.test(file.name) || /^(image\/(jpeg|png|webp|bmp|x-ms-bmp))$/i.test(file.type);
       if (!supported || file.size === 0) {
         rejected.push(file.name);
         continue;
       }
-      items.push({ id: nextId++, file, url: URL.createObjectURL(file), rotation: 0 });
+      items.push({ id: nextId++, file, type: isPdf ? 'pdf' : 'image', url: URL.createObjectURL(file),
+        rotation: 0, crop: null, validation: 'pending', pageCount: null });
     }
     const skipped = rejected.slice(0, 3).join('、');
     const more = rejected.length > 3 ? `等 ${rejected.length} 个文件` : '';
@@ -410,7 +514,7 @@
     if (from < 0 || to < 0 || to >= items.length || from === to) return;
     const [item] = items.splice(from, 1);
     items.splice(to, 0, item);
-    setNotice(notice);
+    invalidateOutput();
     renderList(focusAction ? item.id : undefined, focusAction);
   }
 
@@ -418,42 +522,167 @@
     const index = items.findIndex(item => item.id === previewId);
     if (index < 0 || !previewDialog.open) return;
     const item = items[index];
-    const rotation = item.rotation;
     const request = ++previewRequest;
+    if (previewImage) previewImage.src = '';
+    previewImage = null;
+    cropEditing = false;
+    cropStart = null;
+    cropControls.hidden = true;
     previewTitle.textContent = item.file.name;
     previewTitle.title = item.file.name;
     previewPosition.textContent = `${index + 1} / ${items.length}`;
     previewPrev.disabled = index === 0;
     previewNext.disabled = index === items.length - 1;
     rotateButton.disabled = true;
+    cropButton.disabled = true;
+    rotateButton.hidden = item.type === 'pdf';
+    cropButton.hidden = item.type === 'pdf';
+    resetCropButton.hidden = item.type === 'pdf' || !item.crop;
+    previewCanvas.hidden = item.type === 'pdf';
+    pdfPreviewInfo.hidden = item.type !== 'pdf';
     previewCanvas.width = previewCanvas.height = 1;
     setNotice(previewNotice, '正在加载预览…');
+    if (item.type === 'pdf') {
+      try {
+        await validateItem(item);
+        if (request !== previewRequest) return;
+        pdfPreviewDetails.textContent = `${item.pageCount} 页 · ${fileSize(item.file.size)}`;
+        setNotice(previewNotice);
+        renderList();
+      } catch (error) {
+        if (request === previewRequest) setNotice(previewNotice, error.message, 'error');
+      }
+      return;
+    }
     const image = new Image();
     image.src = item.url;
     try {
       await image.decode();
       if (request !== previewRequest || !previewDialog.open) return;
-      const swap = rotation % 180 !== 0;
-      const width = swap ? image.naturalHeight : image.naturalWidth;
-      const height = swap ? image.naturalWidth : image.naturalHeight;
-      const scale = Math.min(1, 2048 / Math.max(width, height));
-      previewCanvas.width = Math.max(1, Math.round(width * scale));
-      previewCanvas.height = Math.max(1, Math.round(height * scale));
-      const context = previewCanvas.getContext('2d');
-      context.fillStyle = '#fff';
-      context.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-      context.translate(previewCanvas.width / 2, previewCanvas.height / 2);
-      context.rotate(rotation * Math.PI / 180);
-      context.drawImage(image, -image.naturalWidth * scale / 2, -image.naturalHeight * scale / 2,
-        image.naturalWidth * scale, image.naturalHeight * scale);
+      previewImage = image;
       rotateButton.disabled = false;
-      setNotice(previewNotice, rotation ? `已顺时针旋转 ${rotation}°，导出时应用此方向。` : '');
+      cropButton.disabled = false;
+      renderPreviewFrame();
+      setNotice(previewNotice, item.rotation ? `已顺时针旋转 ${item.rotation}°，导出时应用此方向。` : '');
     } catch {
       if (request === previewRequest) setNotice(previewNotice, '图片无法预览，请检查文件是否能正常打开。', 'error');
-    } finally {
-      image.src = '';
+    } finally { if (previewImage !== image) image.src = ''; }
+  }
+
+  function renderPreviewFrame() {
+    const item = items.find(item => item.id === previewId);
+    if (!previewImage || !item || item.type === 'pdf') return;
+    const image = previewImage;
+    const crop = cropEditing ? { x: 0, y: 0, width: 1, height: 1 } : item.crop || { x: 0, y: 0, width: 1, height: 1 };
+    const x = Math.round(crop.x * image.naturalWidth);
+    const y = Math.round(crop.y * image.naturalHeight);
+    const sourceWidth = Math.max(1, Math.round((crop.x + crop.width) * image.naturalWidth) - x);
+    const sourceHeight = Math.max(1, Math.round((crop.y + crop.height) * image.naturalHeight) - y);
+    const rotation = cropEditing ? 0 : item.rotation;
+    const swap = rotation % 180 !== 0;
+    const width = swap ? sourceHeight : sourceWidth;
+    const height = swap ? sourceWidth : sourceHeight;
+    const scale = Math.min(1, 2048 / Math.max(width, height));
+    previewCanvas.width = Math.max(1, Math.round(width * scale));
+    previewCanvas.height = Math.max(1, Math.round(height * scale));
+    previewCanvas.classList.toggle('is-cropping', cropEditing);
+    const context = previewCanvas.getContext('2d');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+    context.save();
+    context.translate(previewCanvas.width / 2, previewCanvas.height / 2);
+    context.rotate(rotation * Math.PI / 180);
+    context.drawImage(image, x, y, sourceWidth, sourceHeight,
+      -sourceWidth * scale / 2, -sourceHeight * scale / 2, sourceWidth * scale, sourceHeight * scale);
+    context.restore();
+    if (cropEditing && draftCrop) {
+      const left = draftCrop.x * previewCanvas.width;
+      const top = draftCrop.y * previewCanvas.height;
+      const right = left + draftCrop.width * previewCanvas.width;
+      const bottom = top + draftCrop.height * previewCanvas.height;
+      context.fillStyle = '#172b2b99';
+      context.fillRect(0, 0, previewCanvas.width, top);
+      context.fillRect(0, bottom, previewCanvas.width, previewCanvas.height - bottom);
+      context.fillRect(0, top, left, bottom - top);
+      context.fillRect(right, top, previewCanvas.width - right, bottom - top);
+      context.strokeStyle = '#46cf9a';
+      context.lineWidth = Math.max(2, previewCanvas.width / 500);
+      context.strokeRect(left, top, right - left, bottom - top);
     }
   }
+
+  function syncCropInputs() {
+    const edges = [draftCrop.x, 1 - draftCrop.x - draftCrop.width, draftCrop.y, 1 - draftCrop.y - draftCrop.height];
+    cropInputs.forEach((input, index) => { input.value = (Math.max(0, edges[index]) * 100).toFixed(1); });
+  }
+
+  cropButton.addEventListener('click', () => {
+    const item = items.find(item => item.id === previewId);
+    if (!item || !previewImage) return;
+    draftCrop = { ...(item.crop || { x: 0, y: 0, width: 1, height: 1 }) };
+    cropEditing = true;
+    document.querySelector('#apply-crop-button').disabled = false;
+    cropControls.hidden = false;
+    rotateButton.disabled = true;
+    previewPrev.disabled = previewNext.disabled = true;
+    syncCropInputs();
+    renderPreviewFrame();
+    setNotice(previewNotice, '拖动选出需要保留的区域，裁剪以图片原始方向显示。');
+  });
+  for (const input of cropInputs) input.addEventListener('input', () => {
+    const [left, right, top, bottom] = cropInputs.map(input => Number(input.value) / 100);
+    if (![left, right, top, bottom].every(number => Number.isFinite(number) && number >= 0 && number < 1) ||
+        left + right >= 1 || top + bottom >= 1) {
+      setNotice(previewNotice, '两侧裁去的比例之和需要小于 100%。', 'error');
+      document.querySelector('#apply-crop-button').disabled = true;
+      return;
+    }
+    document.querySelector('#apply-crop-button').disabled = false;
+    draftCrop = { x: left, y: top, width: 1 - left - right, height: 1 - top - bottom };
+    renderPreviewFrame();
+    setNotice(previewNotice);
+  });
+  function canvasPoint(event) {
+    const box = previewCanvas.getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)),
+      y: Math.min(1, Math.max(0, (event.clientY - box.top) / box.height)) };
+  }
+  previewCanvas.addEventListener('pointerdown', event => {
+    if (!cropEditing) return;
+    event.preventDefault();
+    cropStart = canvasPoint(event);
+    previewCanvas.setPointerCapture(event.pointerId);
+  });
+  previewCanvas.addEventListener('pointermove', event => {
+    if (!cropEditing || !cropStart) return;
+    const end = canvasPoint(event);
+    const x = Math.min(0.999, cropStart.x, end.x);
+    const y = Math.min(0.999, cropStart.y, end.y);
+    draftCrop = { x, y, width: Math.min(1 - x, Math.max(0.001, Math.abs(end.x - cropStart.x))),
+      height: Math.min(1 - y, Math.max(0.001, Math.abs(end.y - cropStart.y))) };
+    document.querySelector('#apply-crop-button').disabled = false;
+    syncCropInputs();
+    renderPreviewFrame();
+  });
+  previewCanvas.addEventListener('pointerup', () => { cropStart = null; });
+  previewCanvas.addEventListener('pointercancel', () => { cropStart = null; });
+  document.querySelector('#apply-crop-button').addEventListener('click', () => {
+    const item = items.find(item => item.id === previewId);
+    if (!item || !draftCrop) return;
+    item.crop = { ...draftCrop };
+    invalidateOutput();
+    renderList();
+    updatePreview();
+  });
+  document.querySelector('#cancel-crop-button').addEventListener('click', () => updatePreview());
+  resetCropButton.addEventListener('click', () => {
+    const item = items.find(item => item.id === previewId);
+    if (!item) return;
+    item.crop = null;
+    invalidateOutput();
+    renderList();
+    updatePreview();
+  });
 
   function openPreview(id) {
     previewId = id;
@@ -473,12 +702,17 @@
     const opener = imageList.querySelector(`[data-id="${previewId}"] .thumbnail-button`);
     previewId = null;
     previewRequest++;
+    cropEditing = false;
+    cropStart = null;
+    if (previewImage) previewImage.src = '';
+    previewImage = null;
     previewCanvas.width = previewCanvas.height = 1;
     opener?.focus();
   });
   previewPrev.addEventListener('click', () => movePreview(-1));
   previewNext.addEventListener('click', () => movePreview(1));
   previewDialog.addEventListener('keydown', event => {
+    if (cropEditing) return;
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
       movePreview(event.key === 'ArrowLeft' ? -1 : 1);
@@ -488,7 +722,7 @@
     const item = items.find(item => item.id === previewId);
     if (!item || busy) return;
     item.rotation = (item.rotation + 90) % 360;
-    setNotice(notice);
+    invalidateOutput();
     renderList();
     updatePreview();
   });
@@ -497,7 +731,7 @@
     if (busy) return;
     items.sort((left, right) => filenameOrder.compare(left.file.name, right.file.name));
     renderList();
-    setNotice(notice);
+    invalidateOutput();
     setNotice(fileNotice, '已按文件名排序，数字按 1、2、10 的顺序排列。');
   });
   clearButton.addEventListener('click', () => {
@@ -505,6 +739,7 @@
     if (previewDialog.open) previewDialog.close();
     for (const item of items) URL.revokeObjectURL(item.url);
     items.length = 0;
+    invalidateOutput();
     clipboardRequest++;
     finishClipboard();
     endDrag();
@@ -640,7 +875,7 @@
     if (button.dataset.action === 'remove') {
       const [item] = items.splice(index, 1);
       URL.revokeObjectURL(item.url);
-      setNotice(notice);
+      invalidateOutput();
       renderList((items[index] || items[index - 1])?.id ?? id, 'remove');
       return;
     }
@@ -683,14 +918,23 @@
 
   pageOptions.addEventListener('change', event => {
     optionCopy.textContent = modeDescriptions[event.target.value];
-    setNotice(notice);
+    invalidateOutput();
   });
   pdfName.addEventListener('input', () => setNotice(notice));
+  qualityMode.addEventListener('change', () => {
+    qualityHelp.textContent = {
+      balanced: '适合日常阅读和打印。',
+      original: '保留完整分辨率，符合条件的 JPG 直接嵌入。裁剪和其他格式会重新编码，文件可能较大。',
+      small: '降低分辨率和 JPEG 质量，适合发送和上传。'
+    }[qualityMode.value];
+    invalidateOutput();
+  });
+  longImageMode.addEventListener('change', invalidateOutput);
 
   function downloadName(value) {
     let name = value.trim().replace(/(?:\.pdf)+$/i, '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/, '');
     if (/^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)/i.test(name)) name = `_${name}`;
-    return `${name || '合并图片'}.pdf`;
+    return `${name || '合并文件'}.pdf`;
   }
 
   function setBusy(value) {
@@ -699,46 +943,168 @@
     pasteButton.disabled = value || readingClipboard;
     fileInput.disabled = value;
     pageOptions.disabled = value;
+    qualityMode.disabled = value;
+    longImageMode.disabled = value;
     pdfName.disabled = value;
     progressBox.hidden = !value;
+    skipInvalidButton.disabled = value;
     renderList();
   }
 
-  exportButton.addEventListener('click', async () => {
-    if (busy || items.length === 0) return;
-    const files = items.map(({ file, rotation }) => ({ file, rotation }));
-    const pageMode = pageOptions.querySelector('input:checked').value;
-    const name = downloadName(pdfName.value);
-    progress.max = files.length;
-    progress.value = 0;
-    setNotice(notice);
-    setBusy(true);
-    exportLabel.textContent = `正在生成 0 / ${files.length}`;
+  function throwIfCanceled(signal) {
+    if (signal?.aborted) throw new DOMException('已取消生成。', 'AbortError');
+  }
 
+  async function validateItem(item, signal) {
+    throwIfCanceled(signal);
+    if (item.validation === 'ready') return;
+    if (item.type === 'pdf') {
+      try {
+        const bytes = await item.file.arrayBuffer();
+        throwIfCanceled(signal);
+        const document = await PDFLib.PDFDocument.load(bytes);
+        throwIfCanceled(signal);
+        if (document.isEncrypted) throw new Error('encrypted');
+        item.pageCount = document.getPageCount();
+        if (item.pageCount < 1) throw new Error('empty');
+        pdfPrepareImportedForm(document, `PDF“${item.file.name}”`, {}, signal);
+        item.validation = 'ready';
+      } catch (error) {
+        throwIfCanceled(signal);
+        item.validation = 'error';
+        item.validationMessage = error.detail?.code === 'unsupported-pdf-form' ? error.message : /encrypt|password/i.test(error.message) ?
+          '这是加密 PDF，请先使用原软件解除密码再导入。' : 'PDF 无法读取或没有可合并页面，请检查原文件。';
+        throw new Error(item.validationMessage);
+      }
+      return;
+    }
+    const image = new Image();
+    const abort = () => { image.src = ''; };
+    signal?.addEventListener('abort', abort, { once: true });
+    image.src = item.url;
     try {
-      const blob = await buildImagePdf(files, {
-        pageMode,
-        onProgress(completed, total) {
-          progress.value = completed;
-          exportLabel.textContent = `正在生成 ${completed} / ${total}`;
-        }
-      });
-      const url = URL.createObjectURL(blob);
+      await image.decode();
+      throwIfCanceled(signal);
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error('invalid size');
+      item.validation = 'ready';
+    } catch {
+      throwIfCanceled(signal);
+      item.validation = 'error';
+      item.validationMessage = '图片无法读取，请检查原文件或将其另存为 JPG / PNG。';
+      throw new Error(item.validationMessage);
+    } finally {
+      signal?.removeEventListener('abort', abort);
+      image.src = '';
+    }
+  }
+
+  async function startDownload(blob, name) {
+    if (window.nativeSavePdf) return window.nativeSavePdf(blob, name);
+    const url = URL.createObjectURL(blob);
+    try {
       const download = document.createElement('a');
       download.href = url;
       download.download = name;
       document.body.append(download);
       download.click();
       download.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setNotice(notice, `已生成 ${name}，共 ${files.length} 页（${fileSize(blob.size)}）。`);
-    } catch (error) {
-      setNotice(notice, error.message || '生成失败，请检查图片后重试。', 'error');
     } finally {
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    }
+    return { status: 'downloaded', name };
+  }
+
+  async function saveCachedPdf() {
+    const { blob, pageCount, skipped } = cachedPdf;
+    cancelButton.hidden = true;
+    retryButton.hidden = true;
+    exportLabel.textContent = desktopHost ? '请选择保存位置' : '正在下载 PDF';
+    const result = await startDownload(blob, downloadName(pdfName.value));
+    const summary = `共 ${pageCount} 页（${fileSize(blob.size)}）` + (skipped ? `，已按你的选择跳过 ${skipped} 个文件` : '');
+    if (result.status === 'canceled') setNotice(notice, '已取消保存。生成结果已保留，可重新选择保存位置。');
+    else if (result.status === 'failed') setNotice(notice, '保存失败。生成结果已保留，可换一个位置重试。', 'error');
+    else setNotice(notice, `${result.status === 'saved' ? '已保存' : '已生成'} ${result.name || downloadName(pdfName.value)}，${summary}。`);
+    retryButton.hidden = false;
+    retryButton.textContent = desktopHost ? '重新选择保存位置' : '再次下载已生成的 PDF';
+  }
+
+  async function exportPdf(skipInvalid = false) {
+    if (busy || readingClipboard || items.length === 0) return;
+    setNotice(notice);
+    setBusy(true);
+    exportController = new AbortController();
+    const signal = exportController.signal;
+    progress.max = items.length;
+    progress.value = 0;
+    cancelButton.hidden = false;
+    cancelButton.disabled = false;
+    try {
+      if (cachedPdf) {
+        await saveCachedPdf();
+        return;
+      }
+      for (const [index, item] of items.entries()) {
+        exportLabel.textContent = `正在检查文件 ${index + 1} / ${items.length}`;
+        try { await validateItem(item, signal); }
+        catch (error) { if (error.name === 'AbortError') throw error; }
+        throwIfCanceled(signal);
+        progress.value = index + 1;
+      }
+      const invalid = items.filter(item => item.validation === 'error');
+      renderList();
+      if (invalid.length && !skipInvalid) {
+        invalidPanel.hidden = false;
+        invalidSummary.textContent = `${invalid.length} 个文件无法读取。请移除标记的文件，或选择跳过后继续。`;
+        skipInvalidButton.disabled = invalid.length === items.length;
+        setNotice(notice, '部分文件需要处理，请查看列表中的标记。', 'error');
+        return;
+      }
+      const selected = items.filter(item => item.validation === 'ready');
+      if (selected.length === 0) {
+        setNotice(notice, '没有可合并的有效文件，请重新添加。', 'error');
+        return;
+      }
+      invalidPanel.hidden = true;
+      const files = selected.map(({ file, type, rotation, crop }) => ({ file, type, rotation, crop }));
+      progress.max = files.length;
+      progress.value = 0;
+      let pageCount = 0;
+      exportLabel.textContent = `正在生成 0 / ${files.length}`;
+      const blob = await buildImagePdf(files, {
+        pageMode: pageOptions.querySelector('input:checked').value,
+        qualityMode: qualityMode.value,
+        longImageMode: longImageMode.value,
+        signal,
+        onProgress(completed, total, detail) {
+          progress.value = completed;
+          pageCount = detail?.pagesCompleted || pageCount;
+          exportLabel.textContent = `正在生成 ${completed} / ${total}`;
+        }
+      });
+      throwIfCanceled(signal);
+      cachedPdf = { blob, pageCount, skipped: invalid.length };
+      exportController = null;
+      await saveCachedPdf();
+    } catch (error) {
+      setNotice(notice, error.name === 'AbortError' ? '已取消生成，可以调整文件后重试。' :
+        error.message || '生成失败，请检查文件后重试。', error.name === 'AbortError' ? '' : 'error');
+      retryButton.hidden = !cachedPdf;
+    } finally {
+      exportController = null;
+      cancelButton.hidden = true;
       setBusy(false);
-      exportLabel.textContent = '生成并下载 PDF';
+      skipInvalidButton.disabled = !items.some(item => item.validation === 'ready');
+      exportLabel.textContent = desktopHost ? '生成并保存 PDF' : '生成并下载 PDF';
       exportButton.focus();
     }
+  }
+  exportButton.addEventListener('click', () => exportPdf());
+  skipInvalidButton.addEventListener('click', () => exportPdf(true));
+  retryButton.addEventListener('click', () => exportPdf());
+  cancelButton.addEventListener('click', () => {
+    exportController?.abort();
+    cancelButton.disabled = true;
+    setNotice(notice, '正在取消生成…');
   });
   </script>
 </body>

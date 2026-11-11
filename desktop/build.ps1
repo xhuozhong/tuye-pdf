@@ -61,10 +61,15 @@ if ($LASTEXITCODE -ne 0) { throw 'Windows executable build failed.' }
 
 Copy-Item -LiteralPath $core, $forms, $loader -Destination $package -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'desktop.html') -Destination (Join-Path $package 'app.html') -Force
-$license = [IO.File]::ReadAllBytes((Join-Path $repo 'third-party/webview2/LICENSE.txt'))
-$notice = [IO.File]::ReadAllBytes((Join-Path $repo 'third-party/webview2/NOTICE.txt'))
+$noticeFiles = @('third-party/webview2/LICENSE.txt', 'third-party/webview2/NOTICE.txt',
+    'third-party/pdf-lib/LICENSE.txt', 'third-party/pdf-lib/THIRD-PARTY-NOTICES.txt')
+$noticeBytes = [Collections.Generic.List[byte]]::new()
+foreach ($file in $noticeFiles) {
+    $noticeBytes.AddRange([IO.File]::ReadAllBytes((Join-Path $repo $file)))
+    $noticeBytes.AddRange([byte[]](13, 10, 13, 10))
+}
 $noticesPath = Join-Path $package 'THIRD-PARTY-NOTICES.txt'
-[IO.File]::WriteAllBytes($noticesPath, [byte[]]($license + [byte[]](13, 10, 13, 10) + $notice))
+[IO.File]::WriteAllBytes($noticesPath, $noticeBytes.ToArray())
 
 $files = @('TuYePdf.exe', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll',
     'WebView2Loader.dll', 'app.html', 'THIRD-PARTY-NOTICES.txt')

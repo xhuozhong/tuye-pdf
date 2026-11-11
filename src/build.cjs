@@ -4,6 +4,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const template = fs.readFileSync(path.join(__dirname, 'image-to-pdf.html'), 'utf8');
 const engine = fs.readFileSync(path.join(__dirname, 'pdf-engine.js'), 'utf8').trimEnd();
+const pdfLibrary = fs.readFileSync(path.join(root, 'third-party', 'pdf-lib', 'pdf-lib.min.js'), 'utf8');
 
 function replaceOnce(page, from, to) {
   if (page.split(from).length !== 2) throw new Error(`Expected one insertion point: ${from}`);
@@ -16,7 +17,8 @@ function write(relativePath, content) {
   fs.writeFileSync(destination, content);
 }
 
-const offline = replaceOnce(template, '/* PDF_ENGINE */', engine);
+let offline = replaceOnce(template, '/* PDF_ENGINE */', engine);
+offline = replaceOnce(offline, '<!-- PDF_LIBRARY -->', '<script>\n' + pdfLibrary + '\n</script>');
 write('dist/TuYePdf-offline.html', offline);
 
 let web = replaceOnce(offline, '<title>多图转 PDF · 图片合并制作工具</title>', `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob: data:; base-uri 'none'; form-action 'none'">
@@ -25,5 +27,5 @@ let web = replaceOnce(offline, '<title>多图转 PDF · 图片合并制作工具
 web = replaceOnce(web, '离线运行 · 图片留在本机', '图片在本机处理');
 web = replaceOnce(web, '    .footer {', '    .footer a { color: inherit; text-underline-offset: 3px; }\n    .footer {');
 web = replaceOnce(web, '双击本文件，即可在浏览器中离线使用。', '多图转 PDF · 网页版');
-web = replaceOnce(web, '导出时会压缩图片，超大图片会缩小。</span></div>', `导出时会压缩图片，超大图片会缩小。</span><a href="https://github.com/xhuozhong/tuye-pdf/releases/latest/download/TuYePdf-win-x64.zip">下载 Windows 版</a></div>`);
+web = replaceOnce(web, '均衡与更小文件模式会压缩图片。</span></div>', `均衡与更小文件模式会压缩图片。</span><a href="https://github.com/xhuozhong/tuye-pdf/releases/latest/download/TuYePdf-win-x64.zip">下载 Windows 版</a></div>`);
 write('docs/index.html', web);
