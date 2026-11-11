@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob: data:; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="data:,">
-  <title>图页 · 图片合并成 PDF</title>
+  <title>多图转 PDF · 图片合并制作工具</title>
   <style>
     :root {
       color-scheme: light;
-      --paper: #f5f3ef;
+      --paper: #f8f9f8;
       --surface: #fff;
-      --ink: #172b2b;
-      --muted: #5c6661;
-      --line: #dedfd7;
-      --accent: #24554c;
-      --accent-dark: #193e38;
-      --tint: #edf3ee;
+      --ink: #202724;
+      --muted: #737b76;
+      --line: #e1e6e2;
+      --accent: #126350;
+      --accent-dark: #0b4d3e;
+      --tint: #eef7f2;
       --error: #963f2e;
       font: 15px/1.6 "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
     }
@@ -31,72 +31,78 @@
       outline-offset: 3px;
     }
 
-    .shell { width: min(1104px, calc(100% - 56px)); margin-inline: auto; }
-    .masthead { border-bottom: 1px solid var(--line); }
-    .masthead-inner { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .shell { width: min(1160px, calc(100% - 64px)); margin-inline: auto; }
+    .masthead { border-bottom: 1px solid var(--line); background: var(--surface); }
+    .masthead-inner { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand, .local-badge { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
-    .brand { font-weight: 750; letter-spacing: .08em; }
-    .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: white; }
+    .brand { font-size: 18px; font-weight: 700; letter-spacing: -.03em; }
+    .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; color: var(--accent); }
     .local-badge { font-size: 12px; color: var(--muted); }
-    .local-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #4e806c; }
 
-    main { padding-block: 46px 40px; }
-    .hero { margin-bottom: 26px; }
-    .eyebrow { margin: 0 0 6px; color: var(--accent); font-size: 12px; font-weight: 750; letter-spacing: .18em; }
-    h1 { margin: 0; font-size: clamp(2rem, 5.4vw, 3.55rem); line-height: 1.19; letter-spacing: -.045em; }
-    .hero-copy { color: var(--muted); margin: 12px 0 0; }
-    .layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(310px, 1fr); align-items: start; gap: 18px; }
-    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 17px; padding: 23px; box-shadow: 0 6px 18px #172b2b06; }
+    main { padding-block: 36px 28px; }
+    .hero { text-align: center; margin-bottom: 30px; }
+    h1 { margin: 0; font-size: clamp(1.8rem, 3.5vw, 2.5rem); line-height: 1.3; letter-spacing: -.04em; font-weight: 700; }
+    .hero-copy { color: var(--muted); margin: 9px 0 0; }
+    .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(310px, 1fr); align-items: stretch; gap: 18px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 23px; }
     .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-    .heading-label { display: flex; align-items: center; gap: 10px; }
-    .step { font: 700 11px/1 system-ui, sans-serif; color: var(--accent); background: var(--tint); border-radius: 6px; padding: 6px 7px; }
-    h2 { font-size: 17px; margin: 0; }
-    .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    h2 { font-size: 20px; margin: 0; font-weight: 700; }
+    .count { font-size: 14px; font-weight: 600; white-space: nowrap; }
+    .material-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 18px; }
 
-    .drop-zone { display: grid; justify-items: center; gap: 7px; text-align: center; background: #fafbf8; border: 1px dashed #9eaea1; border-radius: 12px; padding: 21px 12px; }
+    .drop-zone { display: grid; justify-items: center; gap: 5px; text-align: center; background: #fafbfa; border: 1px dashed #c8d1cb; border-radius: 9px; padding: 18px 12px; margin-bottom: 14px; }
     .drop-zone.is-over { background: var(--tint); border-color: var(--accent); outline: 2px solid var(--accent); }
-    .upload-icon { width: 43px; height: 43px; display: grid; place-items: center; background: var(--tint); border-radius: 12px; color: var(--accent); }
+    .upload-icon { display: grid; place-items: center; color: #8a9790; }
     .drop-zone p { margin: 0; }
-    .drop-title { font-weight: 700; }
-    .formats { font-size: 12px; color: var(--muted); }
-    .pick-button { display: flex; align-items: center; gap: 7px; margin-top: 5px; border: 1px solid #a3b8ac; border-radius: 8px; background: var(--surface); color: var(--accent-dark); padding: 6px 13px; font-weight: 700; }
+    .drop-title { font-size: 13px; color: var(--muted); }
+    .formats { font-size: 11px; color: #8b938e; }
+    .pick-button { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); padding: 7px 13px; font-size: 13px; font-weight: 500; }
+    #pick-button { border-color: #719f8d; color: var(--accent); font-weight: 600; }
     .pick-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: var(--tint); border-color: var(--accent); }
     .pick-button:disabled { opacity: .45; }
+    .import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .list-tools { display: flex; gap: 4px; margin-left: auto; }
+    .list-tools .text-button { padding-inline: 7px; border-color: transparent; color: var(--muted); background: transparent; }
+    .text-button { padding: 5px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; color: var(--accent-dark); font-size: 12px; }
+    .text-button:hover:not(:disabled) { background: var(--tint); }
+    .text-button:disabled { opacity: .45; }
 
-    .order-hint { display: flex; gap: 6px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; margin: 17px 0 8px; color: var(--muted); font-size: 12px; }
-    .order-hint strong { color: var(--ink); font-size: 13px; }
-    .empty-state { margin: 14px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
+    .order-hint { margin: 10px 0; color: var(--muted); font-size: 11px; }
+    .empty-state { margin: 18px 0; text-align: center; color: var(--muted); font-size: 12px; }
+    .preview-hint { color: var(--muted); font-size: 11px; margin: 12px 0 0; }
     [hidden] { display: none !important; }
-    .image-list { margin: -3px; padding: 3px; list-style: none; display: grid; gap: 6px; max-height: 382px; overflow: auto; }
-    .image-row { display: grid; grid-template-columns: 24px 46px minmax(0, 1fr) auto; align-items: center; gap: 10px; position: relative; min-height: 58px; border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    .image-list { margin: -3px; padding: 3px; list-style: none; display: grid; max-height: 360px; overflow: auto; }
+    .image-row { display: grid; grid-template-columns: 30px 64px minmax(0, 1fr) auto; align-items: center; gap: 12px; position: relative; min-height: 88px; border-bottom: 1px solid #edf0ed; padding: 11px 1px; }
+    .image-row:last-child { border-bottom: 0; }
     .image-row.dragging { opacity: .48; }
     .image-row.drop-before { box-shadow: 0 -3px 0 var(--accent); }
     .image-row.drop-after { box-shadow: 0 3px 0 var(--accent); }
-    .drag-handle { display: grid; place-items: center; gap: 1px; font-size: 10px; line-height: 1; color: var(--muted); cursor: grab; }
+    .drag-handle { display: flex; align-items: center; gap: 3px; font-size: 11px; line-height: 1; color: var(--muted); cursor: grab; }
     .drag-handle[draggable="false"] { cursor: default; }
-    .thumbnail { width: 46px; height: 42px; object-fit: contain; display: block; border-radius: 5px; background: #f1f2ee; }
-    .file-name { display: block; font-size: 13px; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .file-meta { display: block; font-size: 11px; color: var(--muted); }
+    .thumbnail-button { width: 64px; height: 64px; border: 0; border-radius: 7px; padding: 2px; background: #f1f3f1; overflow: hidden; }
+    .thumbnail { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .file-name { display: block; font-size: 13px; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .file-meta { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
     .row-actions { display: flex; gap: 4px; }
-    .icon-button { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--accent-dark); border-radius: 6px; }
+    .icon-button { width: 28px; height: 32px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; background: var(--surface); color: #7a847d; border-radius: 6px; }
     .icon-button:disabled { opacity: .35; }
-    .icon-button[data-action="remove"] { color: var(--error); }
     .icon-button[data-action="remove"]:hover:not(:disabled) { background: #fff0eb; border-color: #c7a498; }
 
     fieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
-    legend, .input-label { font-size: 13px; font-weight: 700; margin-bottom: 7px; padding: 0; }
+    legend, .input-label { font-size: 13px; font-weight: 500; margin-bottom: 10px; padding: 0; }
     .options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-    .option { display: flex; align-items: center; gap: 7px; position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: var(--ink); font-size: 12px; cursor: pointer; }
-    .option:has(input:checked) { border-color: #6d8e7f; color: var(--accent-dark); background: var(--tint); }
+    .option { display: flex; align-items: center; gap: 8px; position: relative; border: 1px solid var(--line); border-radius: 7px; padding: 10px; color: var(--ink); font-size: 12px; cursor: pointer; }
+    .option:has(input:checked) { border-color: #b1d2c1; color: var(--accent-dark); background: var(--tint); }
     .option input { margin: 0; accent-color: var(--accent); }
     .option:has(input:disabled) { cursor: default; opacity: .65; }
-    .option-copy { margin: 7px 0 15px; min-height: 2.9em; color: var(--muted); font-size: 12px; }
+    .option-copy { margin: 10px 0 25px; min-height: 2.9em; color: var(--muted); font-size: 11px; }
     .input-label { display: block; }
-    .filename-field { display: flex; align-items: stretch; margin-bottom: 15px; }
+    .filename-field { display: flex; align-items: stretch; margin-bottom: 32px; }
     .filename-field input { min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-right: 0; border-radius: 8px 0 0 8px; color: var(--ink); background: var(--surface); }
     .filename-field input:focus-visible { z-index: 1; }
     .suffix { display: grid; place-items: center; border: 1px solid var(--line); border-radius: 0 8px 8px 0; padding-inline: 10px; background: #f6f7f3; color: var(--muted); font-size: 12px; }
-    .export-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px; border: 0; border-radius: 8px; color: white; background: var(--accent); font-weight: 700; }
+    .export-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; border: 0; border-radius: 7px; color: white; background: var(--accent); font-weight: 600; }
     .export-button:hover:not(:disabled) { background: var(--accent-dark); }
     .export-button:disabled { background: #e9ece6; color: #63746b; }
     .progress-box { margin-top: 10px; }
@@ -105,6 +111,16 @@
     .notice { margin: 9px 0 0; font-size: 12px; color: var(--accent-dark); overflow-wrap: anywhere; }
     .notice:empty { display: none; }
     .notice[data-tone="error"] { color: var(--error); }
+    #preview-dialog { width: min(900px, calc(100% - 32px)); max-height: 92vh; padding: 20px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface); }
+    #preview-dialog::backdrop { background: #172b2bb3; }
+    .preview-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    #preview-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+    #preview-close { flex-shrink: 0; white-space: nowrap; }
+    .preview-stage { height: min(56vh, 520px); display: grid; place-items: center; background: #f1f2ee; border-radius: 8px; overflow: hidden; }
+    #preview-canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+    .preview-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .preview-navigation { display: flex; align-items: center; gap: 10px; }
+    #preview-position { color: var(--muted); font-size: 12px; }
     .footer a { color: inherit; text-underline-offset: 3px; }
     .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-top: 17px; color: var(--muted); font-size: 12px; }
 
@@ -115,64 +131,78 @@
       .hero { margin-bottom: 20px; }
       .layout { grid-template-columns: 1fr; gap: 13px; }
       .panel { padding: 16px; }
-      .image-list { max-height: 254px; }
+      .image-list { max-height: 300px; }
+      .hero-copy { font-size: 13px; }
     }
     @media (max-width: 390px) {
       .shell { width: calc(100% - 22px); }
       .panel { padding: 12px; }
-      .image-row { gap: 5px; grid-template-columns: 20px 34px minmax(0, 1fr) auto; padding-inline: 5px; }
-      .thumbnail { width: 34px; }
-      .icon-button { width: 27px; }
+      .image-row { gap: 7px; grid-template-columns: 24px 44px minmax(0, 1fr) auto; }
+      .thumbnail-button { width: 44px; height: 44px; }
+      .icon-button { width: 24px; }
+      .row-actions { gap: 1px; }
+      .file-name { font-size: 12px; }
+      .material-toolbar { gap: 12px; }
+      .list-tools { width: 100%; justify-content: flex-end; }
     }
   </style>
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" style="position:absolute">
     <defs>
-      <symbol id="icon-brand" viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z"/><path d="M16 3H5a1 1 0 0 0-1 1v12m8-1 2-2 2 2m-3-5h.01"/></symbol>
+      <symbol id="icon-brand" viewBox="0 0 24 24"><path d="m3 7 9-4 9 4-9 4-9-4Zm0 5 9 4 9-4M3 17l9 4 9-4"/></symbol>
       <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 16V4m-5 5 5-5 5 5"/></symbol>
       <symbol id="icon-download" viewBox="0 0 24 24"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 4v12m-5-5 5 5 5-5"/></symbol>
       <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="icon-up" viewBox="0 0 24 24"><path d="m6 14 6-6 6 6"/></symbol>
       <symbol id="icon-down" viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></symbol>
-      <symbol id="icon-remove" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="icon-remove" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7"/></symbol>
       <symbol id="icon-grip" viewBox="0 0 24 24"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" stroke-width="3"/></symbol>
     </defs>
   </svg>
   <header class="masthead">
     <div class="shell masthead-inner">
-      <div class="brand"><span class="brand-mark"><svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-brand"/></svg></span>图页</div>
-      <span class="local-badge">浏览器内处理 · 图片留在本机</span>
+      <div class="brand"><span class="brand-mark"><svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-brand"/></svg></span>多图转 PDF</div>
+      <span class="local-badge">图片在本机处理</span>
     </div>
   </header>
   <main class="shell">
     <div class="hero">
-      <p class="eyebrow">本地文件工具</p>
       <h1>图片合并成 PDF</h1>
-      <p class="hero-copy">添加多张图片，按需要调整顺序，每张图片生成一页。</p>
+      <p class="hero-copy">添加图片，调整顺序，导出一份 PDF</p>
     </div>
 
     <div class="layout">
       <section class="panel" aria-labelledby="images-heading">
         <div class="panel-heading">
-          <div class="heading-label"><span class="step" aria-hidden="true">01</span><h2 id="images-heading">添加图片</h2></div>
+          <h2 class="sr-only" id="images-heading">待合并图片</h2>
           <span class="count" id="image-count" aria-live="polite">0 张图片</span>
         </div>
-        <div class="drop-zone" id="drop-zone">
-          <span class="upload-icon"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-upload"/></svg></span>
-          <p class="drop-title">把图片拖到这里</p>
-          <p class="formats">支持 JPG、PNG、WebP、BMP</p>
-          <button class="pick-button" type="button" id="pick-button"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#icon-plus"/></svg>选择图片</button>
-          <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.jfif,.png,.webp,.bmp,image/jpeg,image/png,image/webp,image/bmp" hidden>
+        <div class="material-toolbar">
+          <div class="import-actions">
+            <button class="pick-button" type="button" id="pick-button"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#icon-plus"/></svg>选择图片</button>
+            <button class="pick-button" type="button" id="paste-button">粘贴截图</button>
+          </div>
+          <div class="list-tools" id="list-tools" hidden>
+            <button class="text-button" type="button" id="sort-button">按文件名排序</button>
+            <button class="text-button" type="button" id="clear-button">清空</button>
+          </div>
         </div>
+        <div class="drop-zone" id="drop-zone">
+          <span class="upload-icon"><svg width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-upload"/></svg></span>
+          <p class="drop-title">拖入图片，也可按 Ctrl+V 或 ⌘V 粘贴</p>
+          <p class="formats">JPG · PNG · WebP · BMP</p>
+        </div>
+        <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.jfif,.png,.webp,.bmp,image/jpeg,image/png,image/webp,image/bmp" hidden>
         <p class="notice" id="file-notice" role="status"></p>
-        <div class="order-hint" id="order-hint" hidden><strong>页面顺序</strong><span>拖动序号，或使用上下按钮调整</span></div>
+        <p class="order-hint" id="order-hint" hidden>拖动序号或使用箭头调整页序</p>
         <ol class="image-list" id="image-list" aria-label="PDF 页面顺序" hidden></ol>
-        <p class="empty-state" id="empty-state">添加后可预览缩略图、排序和移除。</p>
+        <p class="empty-state" id="empty-state">选择图片后，每张图片会生成一页。</p>
+        <p class="preview-hint">点击缩略图可预览和旋转</p>
       </section>
 
       <section class="panel" aria-labelledby="export-heading">
-        <div class="panel-heading"><div class="heading-label"><span class="step" aria-hidden="true">02</span><h2 id="export-heading">设置与导出</h2></div></div>
+        <div class="panel-heading"><h2 id="export-heading">导出设置</h2></div>
         <fieldset id="page-options" aria-describedby="option-copy">
           <legend>页面规格</legend>
           <div class="options">
@@ -191,15 +221,33 @@
         <p class="export-hint">透明区域会以白底显示。</p>
       </section>
     </div>
-    <div class="footer"><span>图页 · 网页版</span><span>导出时会压缩图片，超大图片会缩小。</span><a href="https://github.com/xhuozhong/tuye-pdf/releases/latest/download/TuYePdf-win-x64.exe">下载 Windows 版</a></div>
+    <div class="footer"><span>多图转 PDF · 网页版</span><span>导出时会压缩图片，超大图片会缩小。</span><a href="https://github.com/xhuozhong/tuye-pdf/releases/latest/download/TuYePdf-win-x64.zip">下载 Windows 版</a></div>
   </main>
+  <dialog id="preview-dialog" aria-labelledby="preview-title">
+    <div class="preview-heading">
+      <h2 id="preview-title">图片预览</h2>
+      <button class="text-button" type="button" id="preview-close">关闭</button>
+    </div>
+    <div class="preview-stage"><canvas id="preview-canvas" aria-label="图片预览"></canvas></div>
+    <p class="notice" id="preview-notice" role="status"></p>
+    <div class="preview-actions">
+      <button class="text-button" type="button" id="rotate-button">顺时针旋转 90°</button>
+      <div class="preview-navigation">
+        <button class="text-button" type="button" id="preview-prev">上一张</button>
+        <span id="preview-position"></span>
+        <button class="text-button" type="button" id="preview-next">下一张</button>
+      </div>
+    </div>
+  </dialog>
   <noscript><p class="shell">请启用浏览器的 JavaScript 以使用此工具。</p></noscript>
 
   <script>
   'use strict';
 
-  // Convert a File[] to a PDF Blob in list order. onProgress(completed, total)
-// runs after each page. Modes: auto A4, portrait A4, landscape A4, or image.
+  // Convert File or { file: File, rotation?: number } entries to a PDF Blob.
+// Rotation is clockwise in 90-degree steps, applied after camera orientation.
+// onProgress(completed, total) runs after each page. Modes: auto A4,
+// portrait A4, landscape A4, or image.
 async function buildImagePdf(files, { pageMode = 'auto', onProgress = () => {} } = {}) {
   if (!files.length) throw new Error('请先添加至少一张图片。');
   if (!['auto', 'portrait', 'landscape', 'image'].includes(pageMode)) {
@@ -230,12 +278,18 @@ async function buildImagePdf(files, { pageMode = 'auto', onProgress = () => {} }
   const kids = Array.from(files, (_, index) => `${3 + index * 3} 0 R`);
   append(`<< /Type /Pages /Count ${files.length} /Kids [${kids.join(' ')}] >>\nendobj\n`);
 
-  for (const [index, file] of files.entries()) {
+  for (const [index, entry] of files.entries()) {
+    const file = entry.file || entry;
+    const requestedRotation = entry.file ? (entry.rotation ?? 0) : 0;
+    const rotation = ((requestedRotation % 360) + 360) % 360;
+    if (!Number.isFinite(requestedRotation) || rotation % 90 !== 0) {
+      throw new Error(`第 ${index + 1} 张图片“${file.name}”的旋转角度必须是 90 度的整数倍。`);
+    }
     // Yield between pages so the progress indicator can repaint.
     await new Promise(resolve => setTimeout(resolve, 0));
     let page;
     try {
-      page = await rasterizePdfImage(file);
+      page = await rasterizePdfImage(file, rotation);
     } catch {
       throw new Error(`第 ${index + 1} 张图片“${file.name}”无法处理。请确认文件能正常打开，或将其另存为 JPG / PNG 后重试。`);
     }
@@ -278,7 +332,7 @@ async function buildImagePdf(files, { pageMode = 'auto', onProgress = () => {} }
   return new Blob(chunks, { type: 'application/pdf' });
 }
 
-async function rasterizePdfImage(file) {
+async function rasterizePdfImage(file, rotation = 0) {
   const canvas = document.createElement('canvas');
   let bitmap;
   let image;
@@ -294,8 +348,11 @@ async function rasterizePdfImage(file) {
       await image.decode();
     }
     const source = bitmap || image;
-    const width = bitmap ? bitmap.width : image.naturalWidth;
-    const height = bitmap ? bitmap.height : image.naturalHeight;
+    const sourceWidth = bitmap ? bitmap.width : image.naturalWidth;
+    const sourceHeight = bitmap ? bitmap.height : image.naturalHeight;
+    const quarterTurn = rotation % 180 !== 0;
+    const width = quarterTurn ? sourceHeight : sourceWidth;
+    const height = quarterTurn ? sourceWidth : sourceHeight;
     if (!width || !height) throw new Error('Invalid image dimensions');
 
     // Keep large phone photos manageable while retaining print detail.
@@ -309,7 +366,11 @@ async function rasterizePdfImage(file) {
     context.fillStyle = '#fff';
     context.fillRect(0, 0, rasterWidth, rasterHeight);
     context.imageSmoothingQuality = 'high';
-    context.drawImage(source, 0, 0, rasterWidth, rasterHeight);
+    context.translate(rasterWidth / 2, rasterHeight / 2);
+    context.rotate(rotation * Math.PI / 180);
+    const drawWidth = quarterTurn ? rasterHeight : rasterWidth;
+    const drawHeight = quarterTurn ? rasterWidth : rasterHeight;
+    context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
     bitmap?.close();
     bitmap = null;
 
@@ -347,6 +408,10 @@ function pdfImagePlacement(image, mode) {
   const fileInput = document.querySelector('#file-input');
   const dropZone = document.querySelector('#drop-zone');
   const pickButton = document.querySelector('#pick-button');
+  const pasteButton = document.querySelector('#paste-button');
+  const sortButton = document.querySelector('#sort-button');
+  const clearButton = document.querySelector('#clear-button');
+  const listTools = document.querySelector('#list-tools');
   const fileNotice = document.querySelector('#file-notice');
   const imageList = document.querySelector('#image-list');
   const imageCount = document.querySelector('#image-count');
@@ -360,6 +425,16 @@ function pdfImagePlacement(image, mode) {
   const progressBox = document.querySelector('#progress-box');
   const progress = document.querySelector('#progress');
   const notice = document.querySelector('#notice');
+  const previewDialog = document.querySelector('#preview-dialog');
+  const previewCanvas = document.querySelector('#preview-canvas');
+  const previewTitle = document.querySelector('#preview-title');
+  const previewPosition = document.querySelector('#preview-position');
+  const previewNotice = document.querySelector('#preview-notice');
+  const previewPrev = document.querySelector('#preview-prev');
+  const previewNext = document.querySelector('#preview-next');
+  const rotateButton = document.querySelector('#rotate-button');
+  const desktopHost = window.chrome?.webview;
+  const filenameOrder = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 
   const modeDescriptions = {
     auto: '每页按图片方向选择横版或竖版，等比缩放并居中。',
@@ -373,6 +448,11 @@ function pdfImagePlacement(image, mode) {
   let busy = false;
   let draggedRow = null;
   let dropTarget = null;
+  let previewId = null;
+  let previewRequest = 0;
+  let readingClipboard = false;
+  let clipboardRequest = 0;
+  let pasteSequence = 0;
 
   function icon(name, size) {
     const namespace = 'http://www.w3.org/2000/svg';
@@ -400,7 +480,7 @@ function pdfImagePlacement(image, mode) {
   function renderList(focusId, focusAction) {
     const rows = document.createDocumentFragment();
     let focusButton;
-    items.forEach(({ id, file, url }, index) => {
+    items.forEach(({ id, file, url, rotation }, index) => {
       const row = document.createElement('li');
       row.className = 'image-row';
       row.dataset.id = id;
@@ -418,6 +498,15 @@ function pdfImagePlacement(image, mode) {
       preview.decoding = 'async';
       preview.draggable = false;
       preview.src = url;
+      preview.style.transform = `rotate(${rotation}deg)`;
+      const previewButton = document.createElement('button');
+      previewButton.type = 'button';
+      previewButton.className = 'thumbnail-button';
+      previewButton.dataset.action = 'preview';
+      previewButton.setAttribute('aria-label', `预览第 ${index + 1} 张图片`);
+      previewButton.title = '放大预览和旋转';
+      previewButton.disabled = busy;
+      previewButton.append(preview);
 
       const info = document.createElement('div');
       const name = document.createElement('span');
@@ -426,7 +515,7 @@ function pdfImagePlacement(image, mode) {
       name.title = file.name;
       const meta = document.createElement('span');
       meta.className = 'file-meta';
-      meta.textContent = fileSize(file.size);
+      meta.textContent = fileSize(file.size) + (rotation ? ` · 已旋转 ${rotation}°` : '');
       preview.addEventListener('error', () => { meta.textContent = '图片无法预览'; }, { once: true });
       info.append(name, meta);
 
@@ -445,16 +534,19 @@ function pdfImagePlacement(image, mode) {
         if (id === focusId && !button.disabled && (!focusButton || action === focusAction)) focusButton = button;
       }
 
-      row.append(grip, preview, info, actions);
+      row.append(grip, previewButton, info, actions);
       rows.append(row);
     });
     imageList.replaceChildren(rows);
     imageList.hidden = items.length === 0;
     orderHint.hidden = imageList.hidden;
+    listTools.hidden = imageList.hidden;
+    sortButton.disabled = busy || items.length < 2;
+    clearButton.disabled = busy || items.length === 0;
     emptyState.hidden = !imageList.hidden;
     const countText = `${items.length} 张图片`;
     if (imageCount.textContent !== countText) imageCount.textContent = countText;
-    exportButton.disabled = busy || items.length === 0;
+    exportButton.disabled = busy || readingClipboard || items.length === 0;
     if (focusId != null) (focusButton || pickButton).focus();
   }
 
@@ -467,7 +559,7 @@ function pdfImagePlacement(image, mode) {
         rejected.push(file.name);
         continue;
       }
-      items.push({ id: nextId++, file, url: URL.createObjectURL(file) });
+      items.push({ id: nextId++, file, url: URL.createObjectURL(file), rotation: 0 });
     }
     const skipped = rejected.slice(0, 3).join('、');
     const more = rejected.length > 3 ? `等 ${rejected.length} 个文件` : '';
@@ -483,6 +575,181 @@ function pdfImagePlacement(image, mode) {
     setNotice(notice);
     renderList(focusAction ? item.id : undefined, focusAction);
   }
+
+  async function updatePreview() {
+    const index = items.findIndex(item => item.id === previewId);
+    if (index < 0 || !previewDialog.open) return;
+    const item = items[index];
+    const rotation = item.rotation;
+    const request = ++previewRequest;
+    previewTitle.textContent = item.file.name;
+    previewTitle.title = item.file.name;
+    previewPosition.textContent = `${index + 1} / ${items.length}`;
+    previewPrev.disabled = index === 0;
+    previewNext.disabled = index === items.length - 1;
+    rotateButton.disabled = true;
+    previewCanvas.width = previewCanvas.height = 1;
+    setNotice(previewNotice, '正在加载预览…');
+    const image = new Image();
+    image.src = item.url;
+    try {
+      await image.decode();
+      if (request !== previewRequest || !previewDialog.open) return;
+      const swap = rotation % 180 !== 0;
+      const width = swap ? image.naturalHeight : image.naturalWidth;
+      const height = swap ? image.naturalWidth : image.naturalHeight;
+      const scale = Math.min(1, 2048 / Math.max(width, height));
+      previewCanvas.width = Math.max(1, Math.round(width * scale));
+      previewCanvas.height = Math.max(1, Math.round(height * scale));
+      const context = previewCanvas.getContext('2d');
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+      context.translate(previewCanvas.width / 2, previewCanvas.height / 2);
+      context.rotate(rotation * Math.PI / 180);
+      context.drawImage(image, -image.naturalWidth * scale / 2, -image.naturalHeight * scale / 2,
+        image.naturalWidth * scale, image.naturalHeight * scale);
+      rotateButton.disabled = false;
+      setNotice(previewNotice, rotation ? `已顺时针旋转 ${rotation}°，导出时应用此方向。` : '');
+    } catch {
+      if (request === previewRequest) setNotice(previewNotice, '图片无法预览，请检查文件是否能正常打开。', 'error');
+    } finally {
+      image.src = '';
+    }
+  }
+
+  function openPreview(id) {
+    previewId = id;
+    previewDialog.showModal();
+    updatePreview();
+  }
+
+  function movePreview(offset) {
+    const index = items.findIndex(item => item.id === previewId) + offset;
+    if (index < 0 || index >= items.length) return;
+    previewId = items[index].id;
+    updatePreview();
+  }
+
+  document.querySelector('#preview-close').addEventListener('click', () => previewDialog.close());
+  previewDialog.addEventListener('close', () => {
+    const opener = imageList.querySelector(`[data-id="${previewId}"] .thumbnail-button`);
+    previewId = null;
+    previewRequest++;
+    previewCanvas.width = previewCanvas.height = 1;
+    opener?.focus();
+  });
+  previewPrev.addEventListener('click', () => movePreview(-1));
+  previewNext.addEventListener('click', () => movePreview(1));
+  previewDialog.addEventListener('keydown', event => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      movePreview(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+  });
+  rotateButton.addEventListener('click', () => {
+    const item = items.find(item => item.id === previewId);
+    if (!item || busy) return;
+    item.rotation = (item.rotation + 90) % 360;
+    setNotice(notice);
+    renderList();
+    updatePreview();
+  });
+
+  sortButton.addEventListener('click', () => {
+    if (busy) return;
+    items.sort((left, right) => filenameOrder.compare(left.file.name, right.file.name));
+    renderList();
+    setNotice(notice);
+    setNotice(fileNotice, '已按文件名排序，数字按 1、2、10 的顺序排列。');
+  });
+  clearButton.addEventListener('click', () => {
+    if (busy) return;
+    if (previewDialog.open) previewDialog.close();
+    for (const item of items) URL.revokeObjectURL(item.url);
+    items.length = 0;
+    clipboardRequest++;
+    finishClipboard();
+    endDrag();
+    fileInput.value = '';
+    setNotice(fileNotice, '已清空列表。');
+    setNotice(notice);
+    renderList();
+    pickButton.focus();
+  });
+
+  function clipboardFile(blob) {
+    const extension = blob.type.split('/')[1].replace('jpeg', 'jpg').replace('x-ms-bmp', 'bmp');
+    const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
+    return new File([blob], `粘贴图片-${timestamp}-${++pasteSequence}.${extension}`, { type: blob.type });
+  }
+
+  function finishClipboard() {
+    readingClipboard = false;
+    pasteButton.disabled = busy;
+    exportButton.disabled = busy || items.length === 0;
+  }
+
+  document.addEventListener('paste', event => {
+    if (busy) return;
+    const images = Array.from(event.clipboardData?.items || [])
+      .filter(item => /^image\/(png|jpeg|webp|bmp|x-ms-bmp)$/.test(item.type))
+      .map(item => item.getAsFile()).filter(Boolean);
+    if (images.length === 0) return;
+    event.preventDefault();
+    addFiles(images.map(clipboardFile));
+  });
+  pasteButton.addEventListener('click', async () => {
+    if (busy || readingClipboard) return;
+    setNotice(fileNotice);
+    const requestId = ++clipboardRequest;
+    if (desktopHost) {
+      readingClipboard = true;
+      pasteButton.disabled = true;
+      exportButton.disabled = true;
+      desktopHost.postMessage({ type: 'paste-image', requestId });
+      return;
+    }
+    if (!navigator.clipboard?.read) {
+      setNotice(fileNotice, '请点击页面后按 Ctrl+V 或 ⌘V 粘贴图片。');
+      return;
+    }
+    readingClipboard = true;
+    pasteButton.disabled = true;
+    exportButton.disabled = true;
+    try {
+      const entries = await navigator.clipboard.read();
+      const images = [];
+      for (const entry of entries) {
+        const type = entry.types.find(type => /^image\/(png|jpeg|webp|bmp|x-ms-bmp)$/.test(type));
+        if (type) images.push(clipboardFile(await entry.getType(type)));
+      }
+      if (requestId !== clipboardRequest) return;
+      if (images.length) addFiles(images);
+      else setNotice(fileNotice, '剪贴板里没有可用图片，请先复制截图或图片。');
+    } catch {
+      if (requestId === clipboardRequest) setNotice(fileNotice, '剪贴板暂时无法读取。请点击页面后按 Ctrl+V 或 ⌘V，或选择图片。');
+    } finally {
+      if (requestId === clipboardRequest) finishClipboard();
+    }
+  });
+  desktopHost?.addEventListener('message', event => {
+    const message = event.data;
+    if (!readingClipboard || message?.requestId !== clipboardRequest) return;
+    if (message?.type === 'clipboard-image') {
+      try {
+        const base64 = message.dataUrl.split(',')[1];
+        const bytes = Uint8Array.from(atob(base64), byte => byte.charCodeAt(0));
+        addFiles([new File([bytes], message.name, { type: 'image/png' })]);
+      } catch {
+        setNotice(fileNotice, '粘贴失败，请重新复制截图后再试。', 'error');
+      } finally {
+        finishClipboard();
+      }
+    } else if (message?.type === 'clipboard-error') {
+      setNotice(fileNotice, message.message, 'error');
+      finishClipboard();
+    }
+  });
 
   function clearDropTarget() {
     dropTarget?.classList.remove('drop-before', 'drop-after');
@@ -528,6 +795,10 @@ function pdfImagePlacement(image, mode) {
     const id = Number(button.closest('li').dataset.id);
     const index = items.findIndex(item => item.id === id);
     if (index === -1) return;
+    if (button.dataset.action === 'preview') {
+      openPreview(id);
+      return;
+    }
     if (button.dataset.action === 'remove') {
       const [item] = items.splice(index, 1);
       URL.revokeObjectURL(item.url);
@@ -587,6 +858,7 @@ function pdfImagePlacement(image, mode) {
   function setBusy(value) {
     busy = value;
     pickButton.disabled = value;
+    pasteButton.disabled = value || readingClipboard;
     fileInput.disabled = value;
     pageOptions.disabled = value;
     pdfName.disabled = value;
@@ -596,7 +868,7 @@ function pdfImagePlacement(image, mode) {
 
   exportButton.addEventListener('click', async () => {
     if (busy || items.length === 0) return;
-    const files = items.map(item => item.file);
+    const files = items.map(({ file, rotation }) => ({ file, rotation }));
     const pageMode = pageOptions.querySelector('input:checked').value;
     const name = downloadName(pdfName.value);
     progress.max = files.length;

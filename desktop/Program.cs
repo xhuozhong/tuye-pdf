@@ -1,34 +1,44 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Web.Script.Serialization;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-[assembly: AssemblyTitle("图页 · 图片合并成 PDF")]
-[assembly: AssemblyProduct("图页")]
-[assembly: AssemblyDescription("离线将多张图片合并为一个 PDF")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyTitle("多图转 PDF")]
+[assembly: AssemblyProduct("多图转 PDF")]
+[assembly: AssemblyDescription("将多张图片合并成 PDF 的离线桌面工具")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 internal static class Program
 {
-    internal const string Title = "图页 · 图片合并成 PDF";
-    private static readonly Assembly Package = typeof(Program).Assembly;
+    internal const string Title = "多图转 PDF";
+    internal static readonly string ApplicationFolder = AppDomain.CurrentDomain.BaseDirectory;
 
     [STAThread]
     private static void Main()
     {
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        AppDomain.CurrentDomain.AssemblyResolve += ResolveEmbeddedAssembly;
         try
         {
+            foreach (string file in new[] {
+                "Microsoft.Web.WebView2.Core.dll", "Microsoft.Web.WebView2.WinForms.dll",
+                "WebView2Loader.dll", "app.html"
+            })
+            {
+                if (!File.Exists(Path.Combine(ApplicationFolder, file)))
+                    throw new FileNotFoundException("缺少程序文件 " + file + "。请将下载的 ZIP 完整解压后，再打开 TuYePdf.exe。");
+            }
             Run();
         }
         catch (Exception error)
@@ -37,76 +47,50 @@ internal static class Program
         }
     }
 
-    private static Assembly ResolveEmbeddedAssembly(object sender, ResolveEventArgs args)
-    {
-        string name = new AssemblyName(args.Name).Name;
-        switch (name)
-        {
-            case "Microsoft.Web.WebView2.Core":
-            case "Microsoft.Web.WebView2.WinForms":
-                return Assembly.Load(ReadBytes(name + ".dll"));
-            default:
-                return null;
-        }
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Run()
     {
         string data = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuYePdf");
-        string loader = Path.Combine(data, "loader", "1.0.3912.50", "x64");
-        InstallLoader(loader);
-        CoreWebView2Environment.SetLoaderDllFolderPath(loader);
+        CoreWebView2Environment.SetLoaderDllFolderPath(ApplicationFolder);
         using (var window = new MainWindow(Path.Combine(data, "WebView2")))
         {
             Application.Run(window);
         }
     }
 
-    private static void InstallLoader(string folder)
-    {
-        const string name = "WebView2Loader.dll";
-        Directory.CreateDirectory(folder);
-        string destination = Path.Combine(folder, name);
-        byte[] bytes = ReadBytes(name);
-        if (File.Exists(destination) && File.ReadAllBytes(destination).SequenceEqual(bytes))
-            return;
-
-        string temporary = Path.Combine(folder, Path.GetRandomFileName());
-        try
-        {
-            File.WriteAllBytes(temporary, bytes);
-            if (File.Exists(destination))
-                File.Replace(temporary, destination, null);
-            else
-                File.Move(temporary, destination);
-        }
-        catch (IOException)
-        {
-            if (!File.Exists(destination) || !File.ReadAllBytes(destination).SequenceEqual(bytes))
-                throw;
-        }
-        finally
-        {
-            File.Delete(temporary);
-        }
-    }
-
     internal static string ReadPage()
     {
-        return Encoding.UTF8.GetString(ReadBytes("desktop.html"));
+        return File.ReadAllText(Path.Combine(ApplicationFolder, "app.html"), Encoding.UTF8);
     }
 
-    private static byte[] ReadBytes(string name)
+    internal static long? ReadClipboardRequestId(string json)
     {
-        using (Stream input = Package.GetManifestResourceStream(name))
-        using (var buffer = new MemoryStream())
+        try
         {
-            if (input == null) throw new InvalidOperationException("缺少程序组件 " + name);
-            input.CopyTo(buffer);
-            return buffer.ToArray();
+            var request = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
+            object type;
+            object value;
+            if (request == null || !request.TryGetValue("type", out type) ||
+                !string.Equals(type as string, "paste-image", StringComparison.Ordinal) ||
+                !request.TryGetValue("requestId", out value))
+                return null;
+            if (!(value is int || value is long || value is decimal || value is double))
+                return null;
+            decimal requestId = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+            if (requestId < 1 || requestId > 9007199254740991M || requestId != decimal.Truncate(requestId))
+                return null;
+            return decimal.ToInt64(requestId);
         }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    internal static string SerializeClipboardResult(object value)
+    {
+        return new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Serialize(value);
     }
 
     internal static void ShowStartupError(Exception error)
@@ -114,7 +98,7 @@ internal static class Program
         Exception cause = error.GetBaseException();
         bool runtimeMissing = cause.GetType().Name == "WebView2RuntimeNotFoundException";
         string message = runtimeMissing
-            ? "本机缺少 Microsoft Edge WebView2 运行组件。请安装 Microsoft 官方 WebView2 Runtime 后重新打开图页。"
+            ? "本机缺少 Microsoft Edge WebView2 运行组件。请安装 Microsoft 官方 WebView2 Runtime 后重新打开多图转 PDF。"
             : "启动失败，请关闭窗口后重试。\r\n\r\n" + cause.Message;
         MessageBox.Show(message, Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
@@ -140,7 +124,7 @@ internal sealed class MainWindow : Form
         BackColor = Color.FromArgb(245, 243, 239);
 
         loading = new Label {
-            Text = "正在打开图页…",
+            Text = "正在打开多图转 PDF…",
             TextAlign = ContentAlignment.MiddleCenter,
             Dock = DockStyle.Fill
         };
@@ -174,7 +158,7 @@ internal sealed class MainWindow : Form
                 if (ready) return;
                 if (!args.IsSuccess)
                 {
-                    loading.Text = "图页界面加载失败，请关闭窗口后重试。";
+                    loading.Text = "多图转 PDF 界面加载失败，请关闭窗口后重试。";
                     return;
                 }
                 ready = true;
@@ -182,6 +166,7 @@ internal sealed class MainWindow : Form
                 core.NavigationStarting += BlockExternalNavigation;
             };
             core.DownloadStarting += SavePdf;
+            core.WebMessageReceived += PasteImage;
             core.NavigateToString(Program.ReadPage());
         }
         catch (Exception error)
@@ -196,6 +181,50 @@ internal sealed class MainWindow : Form
     {
         if (!args.Uri.StartsWith("blob:", StringComparison.Ordinal))
             args.Cancel = true;
+    }
+
+    private void PasteImage(object sender, CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        long? requestId = Program.ReadClipboardRequestId(args.WebMessageAsJson);
+        if (!requestId.HasValue) return;
+
+        try
+        {
+            using (Image image = Clipboard.GetImage())
+            {
+                if (image == null)
+                {
+                    SendClipboardResult(new {
+                        type = "clipboard-error", requestId = requestId.Value,
+                        message = "剪贴板中没有图片，请先复制图片后重试。"
+                    });
+                    return;
+                }
+                using (var png = new MemoryStream())
+                {
+                    image.Save(png, ImageFormat.Png);
+                    string name = "粘贴图片-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".png";
+                    SendClipboardResult(new {
+                        type = "clipboard-image", requestId = requestId.Value,
+                        dataUrl = "data:image/png;base64," + Convert.ToBase64String(png.ToArray()), name = name
+                    });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            if (!IsDisposed)
+                SendClipboardResult(new {
+                    type = "clipboard-error", requestId = requestId.Value,
+                    message = "无法读取剪贴板图片，请稍后重试，或直接按 Ctrl+V。"
+                });
+        }
+    }
+
+    private void SendClipboardResult(object value)
+    {
+        if (!IsDisposed)
+            view.CoreWebView2.PostWebMessageAsJson(Program.SerializeClipboardResult(value));
     }
 
     private void SavePdf(object sender, CoreWebView2DownloadStartingEventArgs args)

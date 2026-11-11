@@ -1,15 +1,11 @@
 param(
-    [string] $SdkDir,
-    [string] $OutputName = 'TuYePdf-win-x64.exe'
+    [string] $SdkDir
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $repo 'dist'
 $version = '1.0.3912.50'
-if ([IO.Path]::GetFileName($OutputName) -ne $OutputName -or $OutputName -notlike '*.exe') {
-    throw 'OutputName must be an .exe filename.'
-}
 
 if (-not $SdkDir) {
     $cache = Join-Path $PSScriptRoot '.sdk'
@@ -48,19 +44,36 @@ $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $core = Join-Path $SdkDir 'lib/net462/Microsoft.Web.WebView2.Core.dll'
 $forms = Join-Path $SdkDir 'lib/net462/Microsoft.Web.WebView2.WinForms.dll'
 $loader = Join-Path $SdkDir 'runtimes/win-x64/native/WebView2Loader.dll'
-$destination = Join-Path $dist $OutputName
+$package = Join-Path $dist 'TuYePdf-win-x64'
+New-Item -ItemType Directory -Force -Path $package | Out-Null
+$destination = Join-Path $package 'TuYePdf.exe'
 $cscArgs = @(
     '/nologo', '/target:winexe', '/platform:x64', '/optimize+', '/codepage:65001',
     '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll',
+    '/reference:System.Web.Extensions.dll',
     "/reference:$core", "/reference:$forms",
-    "/resource:$core,Microsoft.Web.WebView2.Core.dll",
-    "/resource:$forms,Microsoft.Web.WebView2.WinForms.dll",
-    "/resource:$loader,WebView2Loader.dll",
-    "/resource:$(Join-Path $PSScriptRoot 'desktop.html'),desktop.html",
     "/win32icon:$(Join-Path $PSScriptRoot 'tuye.ico')",
     "/win32manifest:$(Join-Path $PSScriptRoot 'desktop.manifest')",
     "/out:$destination", (Join-Path $PSScriptRoot 'Program.cs')
 )
 & $compiler @cscArgs
 if ($LASTEXITCODE -ne 0) { throw 'Windows executable build failed.' }
-Get-FileHash -LiteralPath $destination -Algorithm SHA256
+
+Copy-Item -LiteralPath $core, $forms, $loader -Destination $package -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'desktop.html') -Destination (Join-Path $package 'app.html') -Force
+$license = [IO.File]::ReadAllBytes((Join-Path $repo 'third-party/webview2/LICENSE.txt'))
+$notice = [IO.File]::ReadAllBytes((Join-Path $repo 'third-party/webview2/NOTICE.txt'))
+$noticesPath = Join-Path $package 'THIRD-PARTY-NOTICES.txt'
+[IO.File]::WriteAllBytes($noticesPath, [byte[]]($license + [byte[]](13, 10, 13, 10) + $notice))
+
+$files = @('TuYePdf.exe', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll',
+    'WebView2Loader.dll', 'app.html', 'THIRD-PARTY-NOTICES.txt')
+$hashes = foreach ($file in $files) {
+    '{0}  {1}' -f (Get-FileHash -LiteralPath (Join-Path $package $file) -Algorithm SHA256).Hash.ToLowerInvariant(), $file
+}
+$checksums = Join-Path $package 'SHA256SUMS.txt'
+[IO.File]::WriteAllText($checksums, ($hashes -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
+$packageFiles = @($files + 'SHA256SUMS.txt') | ForEach-Object { Join-Path $package $_ }
+$archivePath = Join-Path $dist 'TuYePdf-win-x64.zip'
+Compress-Archive -LiteralPath $packageFiles -DestinationPath $archivePath -Force
+Get-FileHash -LiteralPath $archivePath -Algorithm SHA256

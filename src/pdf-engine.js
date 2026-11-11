@@ -1,5 +1,7 @@
-// Convert a File[] to a PDF Blob in list order. onProgress(completed, total)
-// runs after each page. Modes: auto A4, portrait A4, landscape A4, or image.
+// Convert File or { file: File, rotation?: number } entries to a PDF Blob.
+// Rotation is clockwise in 90-degree steps, applied after camera orientation.
+// onProgress(completed, total) runs after each page. Modes: auto A4,
+// portrait A4, landscape A4, or image.
 async function buildImagePdf(files, { pageMode = 'auto', onProgress = () => {} } = {}) {
   if (!files.length) throw new Error('请先添加至少一张图片。');
   if (!['auto', 'portrait', 'landscape', 'image'].includes(pageMode)) {
@@ -30,12 +32,18 @@ async function buildImagePdf(files, { pageMode = 'auto', onProgress = () => {} }
   const kids = Array.from(files, (_, index) => `${3 + index * 3} 0 R`);
   append(`<< /Type /Pages /Count ${files.length} /Kids [${kids.join(' ')}] >>\nendobj\n`);
 
-  for (const [index, file] of files.entries()) {
+  for (const [index, entry] of files.entries()) {
+    const file = entry.file || entry;
+    const requestedRotation = entry.file ? (entry.rotation ?? 0) : 0;
+    const rotation = ((requestedRotation % 360) + 360) % 360;
+    if (!Number.isFinite(requestedRotation) || rotation % 90 !== 0) {
+      throw new Error(`第 ${index + 1} 张图片“${file.name}”的旋转角度必须是 90 度的整数倍。`);
+    }
     // Yield between pages so the progress indicator can repaint.
     await new Promise(resolve => setTimeout(resolve, 0));
     let page;
     try {
-      page = await rasterizePdfImage(file);
+      page = await rasterizePdfImage(file, rotation);
     } catch {
       throw new Error(`第 ${index + 1} 张图片“${file.name}”无法处理。请确认文件能正常打开，或将其另存为 JPG / PNG 后重试。`);
     }
@@ -78,7 +86,7 @@ async function buildImagePdf(files, { pageMode = 'auto', onProgress = () => {} }
   return new Blob(chunks, { type: 'application/pdf' });
 }
 
-async function rasterizePdfImage(file) {
+async function rasterizePdfImage(file, rotation = 0) {
   const canvas = document.createElement('canvas');
   let bitmap;
   let image;
@@ -94,8 +102,11 @@ async function rasterizePdfImage(file) {
       await image.decode();
     }
     const source = bitmap || image;
-    const width = bitmap ? bitmap.width : image.naturalWidth;
-    const height = bitmap ? bitmap.height : image.naturalHeight;
+    const sourceWidth = bitmap ? bitmap.width : image.naturalWidth;
+    const sourceHeight = bitmap ? bitmap.height : image.naturalHeight;
+    const quarterTurn = rotation % 180 !== 0;
+    const width = quarterTurn ? sourceHeight : sourceWidth;
+    const height = quarterTurn ? sourceWidth : sourceHeight;
     if (!width || !height) throw new Error('Invalid image dimensions');
 
     // Keep large phone photos manageable while retaining print detail.
@@ -109,7 +120,11 @@ async function rasterizePdfImage(file) {
     context.fillStyle = '#fff';
     context.fillRect(0, 0, rasterWidth, rasterHeight);
     context.imageSmoothingQuality = 'high';
-    context.drawImage(source, 0, 0, rasterWidth, rasterHeight);
+    context.translate(rasterWidth / 2, rasterHeight / 2);
+    context.rotate(rotation * Math.PI / 180);
+    const drawWidth = quarterTurn ? rasterHeight : rasterWidth;
+    const drawHeight = quarterTurn ? rasterWidth : rasterHeight;
+    context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
     bitmap?.close();
     bitmap = null;
 

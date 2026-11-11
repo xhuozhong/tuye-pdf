@@ -19,13 +19,13 @@ replaceOnce('<title>', `<meta http-equiv="Content-Security-Policy" content="defa
   <title>`);
 replaceOnce('  </style>', `
     .footer-license { border: 0; background: transparent; color: var(--muted); padding: 0; text-decoration: underline; text-underline-offset: 3px; }
-    dialog { border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: min(620px, calc(100% - 36px)); color: var(--ink); }
-    dialog::backdrop { background: #172b2b70; }
-    dialog .license-text { max-height: 55vh; overflow: auto; white-space: pre-wrap; font-size: 12px; }
-    dialog .pick-button { margin-left: auto; }
+    #license-dialog { border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: min(620px, calc(100% - 36px)); color: var(--ink); }
+    #license-dialog::backdrop { background: #172b2b70; }
+    #license-dialog .license-text { max-height: 55vh; overflow: auto; white-space: pre-wrap; font-size: 12px; }
+    #license-dialog .pick-button { margin-left: auto; }
   </style>`);
 replaceOnce('id="export-label">生成并下载 PDF', 'id="export-label">生成并保存 PDF');
-replaceOnce('双击本文件，即可在浏览器中离线使用。', '图页 · Windows 桌面版');
+replaceOnce('双击本文件，即可在浏览器中离线使用。', '多图转 PDF · Windows 桌面版');
 replaceOnce('导出时会压缩图片，超大图片会缩小。</span></div>', `导出时会压缩图片，超大图片会缩小。</span><button type="button" id="license-button" class="footer-license">组件许可</button></div>
     <dialog id="license-dialog" aria-labelledby="license-heading">
       <h2 id="license-heading">WebView2 SDK 组件许可</h2>
@@ -45,6 +45,7 @@ replaceOnce("  exportButton.addEventListener('click', async () => {", `  const l
   }
 
   window.chrome.webview.addEventListener('message', event => {
+    if (typeof event.data !== 'string') return;
     if (!pendingSave) return;
     const message = event.data;
     const { count, bytes, url } = pendingSave;
